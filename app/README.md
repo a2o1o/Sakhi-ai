@@ -1,23 +1,22 @@
-# Sakhi AI
+# Sakhi AI App
 
-Sakhi is an AI-powered peer reflection companion for girls and young women navigating school, college, and early work transitions.
+This folder contains the App Inventor app and the middleware used to power the Sakhi reflection flow.
 
-## Features
-- Built with MIT App Inventor
-- Uses OpenAI API via backend
-- Stage-based emotional support
-- Safe, reflective conversations
+## Contents
 
-## Structure
-- `/app` → mobile app (.aia)
-- `/backend` → Node.js server
-- `.env.example` → config template
+- `Sakhi.aia`: current MIT App Inventor project
+- `source/`: extracted App Inventor files for editing and diffs
+- `backend/`: Express server, package files, and test UI
+- `.env.example`: backend environment template
+- `appinventor/README.md`: notes for wiring the App Inventor client to the backend
 
-## Setup
-1. Create `.env`
-2. Add OpenAI API key
-3. Run backend
-4. Connect app
+## App flow
 
-## Note
-API keys are never stored in the mobile app.
+- `Screen1`: welcome screen
+- `StageScreen`: stage selection
+- `ConcernScreen`: reflective prompt and AI response
+- `Screen2`: about and safeguards
+
+## Important note
+
+The App Inventor project still contains a placeholder backend URL. Update that to your deployed backend endpoint before production use.

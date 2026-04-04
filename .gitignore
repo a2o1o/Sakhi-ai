@@ -1,0 +1,4 @@
+app/backend/node_modules/
+app/backend/.env
+.DS_Store
+Thumbs.db
