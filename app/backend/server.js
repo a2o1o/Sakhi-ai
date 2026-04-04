@@ -17,9 +17,14 @@ const systemPrompt =
   process.env.CUSTOM_GPT_INSTRUCTIONS ||
   [
     "You are Sakhi, a reflection companion created within the Maitri community for girls and young women.",
+    "Talk like a thoughtful human, not like a counselor opening a session every time.",
+    "For greetings, small talk, or very short messages, respond simply and naturally in 1 or 2 sentences.",
+    "Do not assume distress, confusion, or deep struggle unless the user actually signals it.",
+    "Do not force a reflective frame onto casual messages.",
     "Provide a safe, warm, non-judgmental space to think through questions, transitions, and challenges.",
     "Draw on anonymized peer experiences when helpful so the user feels less alone.",
     "Do not use names or any identifying details from peer data.",
+    "Only quote peer excerpts when the user is sharing a real concern, dilemma, pressure, or transition.",
     "When relevant, quote 2 or 3 short peer excerpts and connect them gently to the user's situation.",
     "Do not sound robotic, preachy, or generic.",
     "Do not prescribe major life decisions or present yourself as therapy.",
@@ -69,6 +74,74 @@ function tokenize(text) {
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((token) => token.length > 2);
+}
+
+function classifyMessage(message) {
+  const trimmed = String(message || "").trim();
+  const lowered = trimmed.toLowerCase();
+  const tokens = tokenize(trimmed);
+
+  const greetingOnly = [
+    "hi",
+    "hey",
+    "hello",
+    "hii",
+    "heyy",
+    "yo",
+    "sup"
+  ].includes(lowered);
+
+  const casualPatterns = [
+    "how are you",
+    "what's up",
+    "whats up",
+    "good morning",
+    "good evening",
+    "good afternoon"
+  ];
+
+  const concernSignals = [
+    "lost",
+    "confused",
+    "pressure",
+    "worried",
+    "anxious",
+    "stress",
+    "stressed",
+    "friendship",
+    "friends",
+    "family",
+    "behind",
+    "compare",
+    "comparison",
+    "self doubt",
+    "doubt",
+    "career",
+    "future",
+    "college",
+    "work",
+    "job",
+    "scholarship",
+    "money",
+    "lonely",
+    "alone",
+    "scared",
+    "fail",
+    "failing",
+    "hate",
+    "upset",
+    "sad"
+  ];
+
+  if (
+    greetingOnly ||
+    casualPatterns.some((pattern) => lowered.includes(pattern)) ||
+    (tokens.length <= 3 && !concernSignals.some((signal) => lowered.includes(signal)))
+  ) {
+    return "casual";
+  }
+
+  return "reflective";
 }
 
 function resolveDataFile(filePath) {
@@ -176,7 +249,9 @@ function getPeerContext(stage, message) {
 }
 
 function buildGeminiPrompt({ message, stage, userId, sessionId, source, peerSnippets }) {
+  const mode = classifyMessage(message);
   const parts = [
+    `mode: ${mode}`,
     `source: ${source}`,
     `stage: ${stage || "unspecified"}`,
     `userId: ${typeof userId === "string" ? userId.slice(0, 100) : "anonymous"}`,
@@ -263,7 +338,8 @@ app.get(
     }
 
     try {
-      const peerSnippets = getPeerContext(stage, message);
+      const mode = classifyMessage(message);
+      const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
       const response = await gemini.models.generateContent({
         model,
         contents: buildGeminiPrompt({
@@ -294,7 +370,8 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
   }
 
   try {
-    const peerSnippets = getPeerContext(stage, message);
+    const mode = classifyMessage(message);
+    const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
     const response = await gemini.models.generateContent({
       model,
       contents: buildGeminiPrompt({
@@ -315,6 +392,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
     res.json({
       reply: text,
       model,
+      mode,
       peerContextCount: peerSnippets.length
     });
   } catch (error) {
