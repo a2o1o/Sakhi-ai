@@ -1,22 +1,23 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const allowedOrigin = process.env.ALLOWED_ORIGIN || "*";
 const sharedAccessToken = process.env.APP_ACCESS_TOKEN || "";
-const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const systemPrompt =
   process.env.CUSTOM_GPT_INSTRUCTIONS ||
   [
-    "You are an assistant used from an MIT App Inventor app.",
-    "Keep answers concise, structured, and safe for general users.",
-    "If a request needs sensitive actions, refuse and explain briefly.",
-    "When steps are helpful, return short numbered lists."
+    "You are Sakhi, a reflective companion for girls and young women.",
+    "Be calm, concise, warm, and non-judgmental.",
+    "Do not prescribe life decisions or present yourself as therapy.",
+    "Help the user reflect, name pressures, and consider grounded next steps.",
+    "If there is risk of harm, encourage immediate help from a trusted person or emergency support."
   ].join(" ");
 
 app.use(
@@ -27,9 +28,9 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
 
-function requireConfiguredApiKey(req, res, next) {
-  if (!process.env.OPENAI_API_KEY) {
-    res.status(500).json({ error: "OPENAI_API_KEY is not configured." });
+function requireConfiguredApiKey(_req, res, next) {
+  if (!process.env.GEMINI_API_KEY) {
+    res.status(500).json({ error: "GEMINI_API_KEY is not configured." });
     return;
   }
 
@@ -51,6 +52,20 @@ function requireAppToken(req, res, next) {
   next();
 }
 
+function buildUserPrompt(message, userId, sessionId) {
+  const safeUserId = typeof userId === "string" ? userId.slice(0, 100) : "anonymous";
+  const safeSessionId = typeof sessionId === "string" ? sessionId.slice(0, 100) : "default";
+
+  return [
+    `source: mit-app-inventor-ai2a`,
+    `userId: ${safeUserId}`,
+    `sessionId: ${safeSessionId}`,
+    "",
+    "User message:",
+    message.trim()
+  ].join("\n");
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
@@ -68,37 +83,23 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
   }
 
   try {
-    const response = await openai.responses.create({
+    const response = await gemini.models.generateContent({
       model,
-      instructions: systemPrompt,
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: message.trim()
-            }
-          ]
-        }
-      ],
-      metadata: {
-        source: "mit-app-inventor-ai2a",
-        userId: typeof userId === "string" ? userId.slice(0, 100) : "anonymous",
-        sessionId: typeof sessionId === "string" ? sessionId.slice(0, 100) : "default"
+      contents: buildUserPrompt(message, userId, sessionId),
+      config: {
+        systemInstruction: systemPrompt
       }
     });
 
-    const text = response.output_text?.trim() || "No response text returned.";
+    const text = response.text?.trim() || "No response text returned.";
 
     res.json({
       reply: text,
-      model: response.model
+      model
     });
   } catch (error) {
-    const status = error?.status || 500;
-    res.status(status).json({
-      error: error?.message || "OpenAI request failed."
+    res.status(500).json({
+      error: error?.message || "Gemini request failed."
     });
   }
 });

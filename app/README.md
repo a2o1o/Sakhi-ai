@@ -1,13 +1,13 @@
-# Sakhi AI App
+# Sakhi AI
 
-This folder contains the App Inventor app and the middleware used to power the Sakhi reflection flow.
+Sakhi AI is an MIT App Inventor project with a protected Gemini-backed reflection service.
 
-## Contents
+This repository includes:
 
-- `Sakhi.aia`: current MIT App Inventor project
-- `source/`: extracted App Inventor files for editing and diffs
-- `backend/`: Express server, package files, and test UI
-- `.env.example`: backend environment template
+- `Sakhi.aia`: the current App Inventor project
+- `sakhi_edit/`: extracted App Inventor screen source for editing and version control
+- `server.js`: Node/Express middleware that hides the Gemini API key
+- `public/`: a small browser test client for the backend
 - `appinventor/README.md`: notes for wiring the App Inventor client to the backend
 
 ## App flow
@@ -17,6 +17,25 @@ This folder contains the App Inventor app and the middleware used to power the S
 - `ConcernScreen`: reflective prompt and AI response
 - `Screen2`: about and safeguards
 
-## Important note
+## Backend
 
-The App Inventor project still contains a placeholder backend URL. Update that to your deployed backend endpoint before production use.
+The app calls a backend in the middle rather than exposing the model key in App Inventor.
+
+Environment variables:
+
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `APP_ACCESS_TOKEN`
+- `ALLOWED_ORIGIN`
+- `CUSTOM_GPT_INSTRUCTIONS`
+
+## Local setup
+
+1. Copy `.env.example` to `.env`
+2. Run `npm install`
+3. Run `npm start`
+
+## Notes
+
+- The App Inventor project still contains a placeholder backend URL and should be updated to the deployed backend endpoint.
+- `node_modules/` is intentionally excluded from version control.
