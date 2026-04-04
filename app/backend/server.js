@@ -144,6 +144,20 @@ function classifyMessage(message) {
   return "reflective";
 }
 
+function getCasualReply(message) {
+  const lowered = String(message || "").trim().toLowerCase();
+
+  if (["hi", "hii", "hey", "heyy", "hello"].includes(lowered)) {
+    return "Hey, what's on your mind?";
+  }
+
+  if (lowered.includes("how are you")) {
+    return "I'm here with you. What's been going on?";
+  }
+
+  return "I'm here. Tell me what's on your mind.";
+}
+
 function resolveDataFile(filePath) {
   return path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
 }
@@ -339,6 +353,11 @@ app.get(
 
     try {
       const mode = classifyMessage(message);
+      if (mode === "casual") {
+        res.type("text/plain").send(getCasualReply(message));
+        return;
+      }
+
       const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
       const response = await gemini.models.generateContent({
         model,
@@ -371,6 +390,16 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
 
   try {
     const mode = classifyMessage(message);
+    if (mode === "casual") {
+      res.json({
+        reply: getCasualReply(message),
+        model,
+        mode,
+        peerContextCount: 0
+      });
+      return;
+    }
+
     const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
     const response = await gemini.models.generateContent({
       model,
