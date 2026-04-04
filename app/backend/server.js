@@ -74,6 +74,46 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.get("/api/chat-text", requireConfiguredApiKey, (req, res, next) => {
+  const token = req.query?.token;
+  if (!sharedAccessToken || token !== sharedAccessToken) {
+    res.status(401).type("text/plain").send("Unauthorized.");
+    return;
+  }
+
+  next();
+}, async (req, res) => {
+  const message = typeof req.query?.message === "string" ? req.query.message : "";
+  const stage = typeof req.query?.stage === "string" ? req.query.stage : "";
+  const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
+
+  if (!message.trim()) {
+    res.status(400).type("text/plain").send("message must be a non-empty string.");
+    return;
+  }
+
+  try {
+    const response = await gemini.models.generateContent({
+      model,
+      contents: [
+        `source: ${source}`,
+        `stage: ${stage || "unspecified"}`,
+        "",
+        "User message:",
+        message.trim()
+      ].join("\n"),
+      config: {
+        systemInstruction: systemPrompt
+      }
+    });
+
+    const text = response.text?.trim() || "No response text returned.";
+    res.type("text/plain").send(text);
+  } catch (error) {
+    res.status(500).type("text/plain").send(error?.message || "Gemini request failed.");
+  }
+});
+
 app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res) => {
   const { message, userId, sessionId } = req.body ?? {};
 
