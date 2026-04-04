@@ -6,7 +6,7 @@ This repository includes:
 
 - `Sakhi.aia`: the current App Inventor project
 - `sakhi_edit/`: extracted App Inventor screen source for editing and version control
-- `server.js`: Node/Express middleware that hides the Gemini API key
+- `server.js`: Node/Express middleware that hides the Gemini API key and retrieves anonymized Maitri peer excerpts
 - `public/`: a small browser test client for the backend
 - `appinventor/README.md`: notes for wiring the App Inventor client to the backend
 
@@ -28,6 +28,9 @@ Environment variables:
 - `APP_ACCESS_TOKEN`
 - `ALLOWED_ORIGIN`
 - `CUSTOM_GPT_INSTRUCTIONS`
+- `SCHOOL_RESPONSES_CSV`
+- `COLLEGE_RESPONSES_CSV`
+- `WORKING_WOMEN_RESPONSES_CSV`
 
 ## Local setup
 
@@ -39,3 +42,4 @@ Environment variables:
 
 - The App Inventor project still contains a placeholder backend URL and should be updated to the deployed backend endpoint.
 - `node_modules/` is intentionally excluded from version control.
+- Raw Maitri CSVs should stay server-side and should not be committed to a public repository because they contain personal data.
