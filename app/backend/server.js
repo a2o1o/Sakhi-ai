@@ -18,7 +18,17 @@ const allowedOrigin = process.env.ALLOWED_ORIGIN || "*";
 const sharedAccessToken = process.env.APP_ACCESS_TOKEN || "";
 const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const maxOutputTokens = Number(process.env.MAX_OUTPUT_TOKENS || 1100);
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const geminiApiKeys = [
+  ...String(process.env.GEMINI_API_KEYS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+  ...(!process.env.GEMINI_API_KEYS && process.env.GEMINI_API_KEY
+    ? [String(process.env.GEMINI_API_KEY).trim()]
+    : [])
+].filter(Boolean);
+const geminiClients = geminiApiKeys.map((apiKey) => new GoogleGenAI({ apiKey }));
+let geminiClientIndex = 0;
 const extraInstructions = process.env.CUSTOM_GPT_INSTRUCTIONS || "";
 
 const baseSystemPrompt = [
@@ -556,6 +566,29 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasGeminiCredentials() {
+  return geminiClients.length > 0;
+}
+
+function getGeminiClient(index = geminiClientIndex) {
+  if (!geminiClients.length) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+  const safeIndex = ((index % geminiClients.length) + geminiClients.length) % geminiClients.length;
+  return {
+    client: geminiClients[safeIndex],
+    keyIndex: safeIndex
+  };
+}
+
+function rotateGeminiClient(previousIndex) {
+  if (!geminiClients.length) {
+    return 0;
+  }
+  geminiClientIndex = (((previousIndex ?? geminiClientIndex) + 1) % geminiClients.length + geminiClients.length) % geminiClients.length;
+  return geminiClientIndex;
+}
+
 function scoreSnippet(snippet, queryTokens) {
   const haystackTokens = tokenize(`${snippet.header} ${snippet.text}`);
   const tokenSet = new Set(haystackTokens);
@@ -774,7 +807,8 @@ function getResponseTokenLimit(topic) {
 }
 
 async function generateGeminiText({ prompt, tokenLimit }) {
-  const response = await gemini.models.generateContent({
+  const { client, keyIndex } = getGeminiClient();
+  const response = await client.models.generateContent({
     model,
     contents: prompt,
     config: {
@@ -797,7 +831,8 @@ async function generateGeminiText({ prompt, tokenLimit }) {
 
   return {
     text,
-    finishReason: String(response?.candidates?.[0]?.finishReason || "").toUpperCase()
+    finishReason: String(response?.candidates?.[0]?.finishReason || "").toUpperCase(),
+    keyIndex
   };
 }
 
@@ -867,7 +902,8 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
   const tokenLimit = getResponseTokenLimit(topic);
 
   let lastError;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const maxAttempts = Math.max(2, geminiClients.length);
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       let result = await generateGeminiText({ prompt, tokenLimit });
 
@@ -945,9 +981,11 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
       return result.text;
     } catch (error) {
       lastError = error;
-      if (!isRetryableModelError(error) || attempt === 1) {
+      const retryable = isRetryableModelError(error);
+      if (!retryable || attempt === maxAttempts - 1) {
         throw error;
       }
+      rotateGeminiClient();
       await wait(600 * (attempt + 1));
     }
   }
@@ -1042,7 +1080,7 @@ app.get("/dashboard", (_req, res) => {
 });
 
 function requireConfiguredApiKey(_req, res, next) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasGeminiCredentials()) {
     res.status(500).json({ error: "GEMINI_API_KEY is not configured." });
     return;
   }
