@@ -719,6 +719,11 @@ function getEffectivePeerSnippets(topic, peerSnippets) {
   return isPracticalTopic(topic) ? peerSnippets.slice(0, 1) : peerSnippets.slice(0, 2);
 }
 
+function shouldLeadWithMaitriTag(topic) {
+  const normalized = normalizeStage(topic);
+  return normalized === "scholarships" || normalized === "internships";
+}
+
 function buildReflectivePrompt({ message, stage, topic, peerSnippets, history, language }) {
   const parts = [
     "mode: reflective",
@@ -790,6 +795,12 @@ function buildPracticalPrompt({ message, stage, topic, peerSnippets, history, la
     "- Use a short intro, then 2 or 3 compact bullets or options if useful.",
     "- If the user sounds emotional, validate briefly before the practical guidance.",
     "- Prefer criteria, next steps, and shortlists over long explanations.",
+    shouldLeadWithMaitriTag(topic)
+      ? "- Begin the response with a Maitri grounding line such as 'Many of your seniors from Maitri have shared...' or 'Many of your seniors from Maitri have felt...' before the rest of the guidance."
+      : "- When natural, you may mention Maitri seniors briefly so the user feels less alone.",
+    shouldLeadWithMaitriTag(topic)
+      ? "- For scholarships and internships, the Maitri grounding line should appear in the opening sentence, not later."
+      : "- Keep any Maitri reference brief and natural.",
     "- Finish cleanly. Do not end mid-sentence."
   );
 
