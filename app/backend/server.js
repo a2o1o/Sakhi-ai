@@ -1068,6 +1068,7 @@ app.get(
     const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
     const sessionId = typeof req.query?.sessionId === "string" ? req.query.sessionId : "";
     const userId = typeof req.query?.userId === "string" ? req.query.userId : "";
+    const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
 
     if (!message.trim()) {
       res.status(400).type("text/plain").send("message must be a non-empty string.");
@@ -1077,7 +1078,6 @@ app.get(
     try {
       const mode = classifyMessage(message);
       const language = detectLanguage(message);
-      const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
 
       if (isHighRiskMessage(message)) {
         const reply = getSafetyReply(language);

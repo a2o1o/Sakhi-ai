@@ -6,14 +6,17 @@
     <title>Sakhi Dashboard</title>
     <style>
       :root {
-        --bg: #f7efe5;
-        --panel: #fffaf4;
+        --bg: #f8f2ec;
+        --panel: #fffaf6;
         --ink: #2b2232;
         --muted: #7a6f77;
-        --accent: #4f3b63;
-        --accent-soft: #e8dccc;
+        --accent: #6e597a;
+        --accent-deep: #493260;
+        --accent-soft: #e7d7ca;
+        --accent-lilac: #b8a9c9;
+        --accent-peach: #f2b99b;
         --warn: #b85c38;
-        --line: #d9cab8;
+        --line: #dcccbc;
       }
 
       * { box-sizing: border-box; }
@@ -21,8 +24,9 @@
         margin: 0;
         font-family: Georgia, "Times New Roman", serif;
         background:
-          radial-gradient(circle at top left, #ffe4c2 0, transparent 25%),
-          linear-gradient(135deg, #f7efe5, #efe0cf);
+          radial-gradient(circle at top left, rgba(242,185,155,0.22) 0, transparent 24%),
+          radial-gradient(circle at top right, rgba(184,169,201,0.18) 0, transparent 22%),
+          linear-gradient(135deg, #f8f2ec, #efe4d7);
         color: var(--ink);
       }
 
@@ -42,7 +46,7 @@
 
       header {
         padding: 24px;
-        background: linear-gradient(135deg, #4f3b63, #6d517d);
+        background: linear-gradient(135deg, var(--accent-deep), var(--accent));
         color: white;
       }
 
@@ -109,8 +113,8 @@
         display: inline-block;
         padding: 5px 10px;
         border-radius: 999px;
-        background: var(--accent-soft);
-        color: var(--accent);
+        background: rgba(184,169,201,0.22);
+        color: var(--accent-deep);
         font-size: 13px;
         font-weight: 700;
       }
@@ -149,7 +153,7 @@
         border: 0;
         border-radius: 999px;
         padding: 10px 16px;
-        background: var(--accent);
+        background: var(--accent-deep);
         color: white;
         font: inherit;
         font-weight: 700;
