@@ -179,7 +179,7 @@
     <main>
       <header>
         <h1>Sakhi Dashboard</h1>
-        <p>Track operational health and real usage impact in one place. This focuses on whether Sakhi is working well and whether people are actually using it meaningfully.</p>
+        <p>Track operational health and real usage impact in one place. These numbers are cumulative across the lifetime of Sakhi, not just since the last restart.</p>
         <div class="toolbar">
           <div id="meta" class="subtle">Loading metrics...</div>
           <button id="refresh">Refresh</button>
@@ -190,7 +190,7 @@
         <h2>What This Should Track</h2>
         <div class="grid" style="margin-top:14px;">
           <div class="card"><div class="label">Reliability</div><div class="subtle">Success rate, latency, failures, rate limits, and truncated responses.</div></div>
-          <div class="card"><div class="label">Reach</div><div class="subtle">How many sessions Sakhi serves, which stages and languages use it, and what topics matter most.</div></div>
+          <div class="card"><div class="label">Reach</div><div class="subtle">How many users and sessions Sakhi serves, which stages and languages use it, and what topics matter most.</div></div>
           <div class="card"><div class="label">Engagement</div><div class="subtle">Repeat sessions and mode mix show whether users come back and use reflective versus practical routes.</div></div>
           <div class="card"><div class="label">Safety & Need</div><div class="subtle">Safety-response counts and topic distribution show where support demand is surfacing.</div></div>
         </div>
@@ -280,11 +280,12 @@
           const totals = data.totals || {};
           const breakdowns = data.breakdowns || {};
 
-          meta.textContent = `Model: ${data.model} | Uptime: ${totals.totalRequests ?? 0} requests observed | Server uptime ${data.uptimeSeconds}s`;
+          meta.textContent = `Model: ${data.model} | Lifetime totals are cumulative | Current server uptime ${data.uptimeSeconds}s`;
 
           core.innerHTML = [
             card("Total Requests", totals.totalRequests ?? 0, "Overall Sakhi traffic across all routes."),
             card("Success Rate", `${totals.successRate ?? 0}%`, `${totals.successes ?? 0} successes, ${totals.failures ?? 0} failures.`),
+            card("Users", totals.totalUsers ?? 0, "Distinct anonymous users seen over Sakhi's lifetime."),
             card("Sessions", totals.totalSessions ?? 0, `${totals.repeatSessions ?? 0} repeat sessions (${totals.repeatSessionRate ?? 0}%).`),
             card("Safety Responses", totals.safetyResponses ?? 0, "Useful as a need and safeguarding signal."),
             card("Avg Latency", `${totals.averageLatencyMs ?? 0} ms`, `${totals.slowResponses ?? 0} responses were slower than 4s.`),

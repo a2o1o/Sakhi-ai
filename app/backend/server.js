@@ -303,6 +303,8 @@ const stageResponses = {
 
 const memoryStoreFile =
   process.env.MEMORY_STORE_FILE || path.join(repoRoot, "data", "sakhi-memory.json");
+const analyticsStoreFile =
+  process.env.ANALYTICS_STORE_FILE || path.join(repoRoot, "data", "sakhi-analytics.json");
 const memoryRetentionMs =
   Number(process.env.MEMORY_RETENTION_DAYS || 30) * 24 * 60 * 60 * 1000;
 const MAX_TURNS_PER_SESSION = 2;
@@ -326,6 +328,7 @@ const analytics = {
   stages: {},
   modes: {},
   languages: {},
+  totalUsers: 0,
   totalSessions: 0,
   repeatSessions: 0,
   safetyResponses: 0,
@@ -333,8 +336,12 @@ const analytics = {
   recentTruncations: []
 };
 const conversationStore = loadPersistentConversationStore();
-const sessionStats = new Map();
+const { analytics: persistedAnalytics, sessionCounts, userKeys } = loadPersistentAnalyticsState();
+Object.assign(analytics, persistedAnalytics);
+const sessionStats = new Map(Object.entries(sessionCounts));
+const knownUserKeys = new Set(userKeys);
 let persistMemoryTimer = null;
+let persistAnalyticsTimer = null;
 
 function bumpCounter(bucket, key) {
   const safeKey = key || "general";
@@ -455,7 +462,74 @@ function schedulePersistConversationStore() {
   persistMemoryTimer = setTimeout(persistConversationStore, 400);
 }
 
-function recordSessionActivity(sessionKey) {
+function loadPersistentAnalyticsState() {
+  try {
+    if (!fs.existsSync(analyticsStoreFile)) {
+      return {
+        analytics: {},
+        sessionCounts: {},
+        userKeys: []
+      };
+    }
+
+    const raw = JSON.parse(fs.readFileSync(analyticsStoreFile, "utf8"));
+    return {
+      analytics: raw?.analytics || {},
+      sessionCounts: raw?.sessionCounts || {},
+      userKeys: Array.isArray(raw?.userKeys) ? raw.userKeys : []
+    };
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        type: "sakhi_analytics_load",
+        outcome: "failed",
+        error: String(error?.message || error).slice(0, 200)
+      })
+    );
+    return {
+      analytics: {},
+      sessionCounts: {},
+      userKeys: []
+    };
+  }
+}
+
+function persistAnalyticsState() {
+  persistAnalyticsTimer = null;
+  try {
+    fs.mkdirSync(path.dirname(analyticsStoreFile), { recursive: true });
+    fs.writeFileSync(
+      analyticsStoreFile,
+      JSON.stringify(
+        {
+          analytics,
+          sessionCounts: Object.fromEntries(sessionStats.entries()),
+          userKeys: Array.from(knownUserKeys)
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        type: "sakhi_analytics_persist",
+        outcome: "failed",
+        error: String(error?.message || error).slice(0, 200)
+      })
+    );
+  }
+}
+
+function schedulePersistAnalyticsState() {
+  if (persistAnalyticsTimer) {
+    clearTimeout(persistAnalyticsTimer);
+  }
+  persistAnalyticsTimer = setTimeout(persistAnalyticsState, 400);
+}
+
+function recordSessionActivity(sessionKey, userKey) {
   if (!sessionKey) {
     return;
   }
@@ -469,6 +543,13 @@ function recordSessionActivity(sessionKey) {
   } else if (currentCount === 1) {
     analytics.repeatSessions += 1;
   }
+
+  if (userKey && !knownUserKeys.has(userKey)) {
+    knownUserKeys.add(userKey);
+    analytics.totalUsers += 1;
+  }
+
+  schedulePersistAnalyticsState();
 }
 
 function wait(ms) {
@@ -798,6 +879,7 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
           finishReason: result.finishReason || "UNKNOWN",
           preview: String(result.text || "").slice(0, 160)
         });
+        schedulePersistAnalyticsState();
         console.log(
           JSON.stringify({
             type: "sakhi_truncation",
@@ -881,7 +963,7 @@ function recordSuccess(topic, responseText, meta = {}) {
   if (Number(meta.latencyMs || 0) >= 4000) {
     analytics.slowResponses += 1;
   }
-  recordSessionActivity(meta.sessionKey);
+  recordSessionActivity(meta.sessionKey, meta.userKey);
   bumpCounter(analytics.topics, topic || "general");
   bumpCounter(analytics.stages, meta.stage || "unknown");
   bumpCounter(analytics.modes, meta.mode || "unknown");
@@ -889,6 +971,7 @@ function recordSuccess(topic, responseText, meta = {}) {
   if (meta.mode === "safety") {
     analytics.safetyResponses += 1;
   }
+  schedulePersistAnalyticsState();
   console.log(
     JSON.stringify({
       type: "sakhi_analytics",
@@ -912,7 +995,7 @@ function recordFailure(topic, error, meta = {}) {
   if (Number(meta.latencyMs || 0) >= 4000) {
     analytics.slowResponses += 1;
   }
-  recordSessionActivity(meta.sessionKey);
+  recordSessionActivity(meta.sessionKey, meta.userKey);
   bumpCounter(analytics.topics, topic || "general");
   bumpCounter(analytics.stages, meta.stage || "unknown");
   bumpCounter(analytics.modes, meta.mode || "unknown");
@@ -930,6 +1013,7 @@ function recordFailure(topic, error, meta = {}) {
     latencyMs: Number(meta.latencyMs || 0),
     error: message.slice(0, 180)
   });
+  schedulePersistAnalyticsState();
   console.log(
     JSON.stringify({
       type: "sakhi_analytics",
@@ -996,6 +1080,7 @@ app.get("/api/health", (_req, res) => {
         ? Math.round(analytics.totalLatencyMs / analytics.totalRequests)
         : 0,
       slowResponses: analytics.slowResponses,
+      totalUsers: analytics.totalUsers,
       totalSessions: analytics.totalSessions,
       repeatSessions: analytics.repeatSessions,
       safetyResponses: analytics.safetyResponses,
@@ -1026,6 +1111,7 @@ app.get("/api/dashboard-metrics", (_req, res) => {
         ? Math.round(analytics.totalLatencyMs / analytics.totalRequests)
         : 0,
       slowResponses: analytics.slowResponses,
+      totalUsers: analytics.totalUsers,
       totalSessions: analytics.totalSessions,
       repeatSessions: analytics.repeatSessions,
       repeatSessionRate:
@@ -1088,6 +1174,7 @@ app.get(
           language,
           stage,
           sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
           latencyMs: Date.now() - startedAt
         });
         res.type("text/plain").send(reply);
@@ -1103,6 +1190,7 @@ app.get(
           language,
           stage,
           sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
           latencyMs: Date.now() - startedAt
         });
         res.type("text/plain").send(reply);
@@ -1126,6 +1214,7 @@ app.get(
         language,
         stage,
         sessionKey,
+        userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
       res.type("text/plain").send(text);
@@ -1136,6 +1225,7 @@ app.get(
         language,
         stage,
         sessionKey,
+        userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
       res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
@@ -1183,6 +1273,7 @@ app.post(
           language,
           stage,
           sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
           latencyMs: Date.now() - startedAt
         });
         res.type("text/plain").send(reply);
@@ -1198,6 +1289,7 @@ app.post(
           language,
           stage,
           sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
           latencyMs: Date.now() - startedAt
         });
         res.type("text/plain").send(reply);
@@ -1221,6 +1313,7 @@ app.post(
         language,
         stage,
         sessionKey,
+        userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
       res.type("text/plain").send(text);
@@ -1231,6 +1324,7 @@ app.post(
         language,
         stage,
         sessionKey,
+        userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
       res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
@@ -1258,6 +1352,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       stage,
       topic
     });
+    const userKey = typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "";
 
     if (isHighRiskMessage(message)) {
       const reply = getSafetyReply(language);
@@ -1268,6 +1363,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
         language,
         stage,
         sessionKey,
+        userKey,
         latencyMs: Date.now() - startedAt
       });
       res.json({
@@ -1289,6 +1385,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
         language,
         stage,
         sessionKey,
+        userKey,
         latencyMs: Date.now() - startedAt
       });
       res.json({
@@ -1317,6 +1414,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       language,
       stage,
       sessionKey,
+      userKey,
       latencyMs: Date.now() - startedAt
     });
 
@@ -1334,6 +1432,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       language,
       stage,
       sessionKey,
+      userKey,
       latencyMs: Date.now() - startedAt
     });
     res.status(503).json({
@@ -1348,10 +1447,12 @@ app.listen(port, () => {
 
 process.on("SIGTERM", () => {
   persistConversationStore();
+  persistAnalyticsState();
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
   persistConversationStore();
+  persistAnalyticsState();
   process.exit(0);
 });
