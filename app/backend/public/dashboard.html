@@ -270,7 +270,7 @@
         meta.textContent = "Loading metrics...";
 
         try {
-          const response = await fetch("/api/dashboard-metrics");
+          const response = await fetch("api/dashboard-metrics");
           const data = await response.json();
 
           const totals = data.totals || {};
