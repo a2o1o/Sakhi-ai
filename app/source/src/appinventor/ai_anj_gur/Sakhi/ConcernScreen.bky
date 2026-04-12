@@ -230,14 +230,25 @@
                             </value>
                             <next>
                               <block type="component_set_get" id="concern-show-empty-chat">
-                                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-                                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-                                <field name="PROP">Text</field>
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" set_or_get="set" property_name="WebViewString" is_generic="false" instance_name="ChatView"></mutation>
+                                <field name="COMPONENT_SELECTOR">ChatView</field>
+                                <field name="PROP">WebViewString</field>
                                 <value name="VALUE">
                                   <block type="text" id="concern-empty-chat-text">
-                                    <field name="TEXT">No messages yet. Start the conversation below.</field>
+                                    <field name="TEXT"></field>
                                   </block>
                                 </value>
+                                <next>
+                                  <block type="component_method" id="concern-chat-go-home">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" method_name="GoToUrl" is_generic="false" instance_name="ChatView"></mutation>
+                                    <field name="COMPONENT_SELECTOR">ChatView</field>
+                                    <value name="ARG0">
+                                      <block type="text" id="concern-chat-home-url">
+                                        <field name="TEXT">http://localhost/chat.html</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </next>
                               </block>
                             </next>
                           </block>
@@ -350,9 +361,7 @@
                         </value>
                         <value name="ADD1">
                           <block type="text" id="concern-history-gap">
-                            <field name="TEXT">
-
-</field>
+                            <field name="TEXT">&lt;&lt;&lt;MSG&gt;&gt;&gt;</field>
                           </block>
                         </value>
                         <value name="ADD2">
@@ -371,9 +380,9 @@
                 </statement>
                 <next>
                   <block type="component_set_get" id="concern-show-history-after-user">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-                    <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-                    <field name="PROP">Text</field>
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" set_or_get="set" property_name="WebViewString" is_generic="false" instance_name="ChatView"></mutation>
+                    <field name="COMPONENT_SELECTOR">ChatView</field>
+                    <field name="PROP">WebViewString</field>
                     <value name="VALUE">
                       <block type="lexical_variable_get" id="concern-history-read-after-user">
                         <field name="VAR">global chatHistory</field>
@@ -537,9 +546,7 @@
                 </value>
                 <value name="ADD1">
                   <block type="text" id="concern-sakhi-gap">
-                    <field name="TEXT">
-
-</field>
+                    <field name="TEXT">&lt;&lt;&lt;MSG&gt;&gt;&gt;</field>
                   </block>
                 </value>
                 <value name="ADD2">
@@ -559,9 +566,9 @@
             </value>
             <next>
               <block type="component_set_get" id="concern-show-history-after-sakhi">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-                <field name="PROP">Text</field>
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" set_or_get="set" property_name="WebViewString" is_generic="false" instance_name="ChatView"></mutation>
+                <field name="COMPONENT_SELECTOR">ChatView</field>
+                <field name="PROP">WebViewString</field>
                 <value name="VALUE">
                   <block type="lexical_variable_get" id="concern-history-final-read">
                     <field name="VAR">global chatHistory</field>
@@ -596,9 +603,7 @@
                 </value>
                 <value name="ADD1">
                   <block type="text" id="concern-error-gap">
-                    <field name="TEXT">
-
-</field>
+                    <field name="TEXT">&lt;&lt;&lt;MSG&gt;&gt;&gt;</field>
                   </block>
                 </value>
                 <value name="ADD2">
@@ -646,9 +651,9 @@
             </value>
             <next>
               <block type="component_set_get" id="concern-show-history-after-error">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-                <field name="PROP">Text</field>
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" set_or_get="set" property_name="WebViewString" is_generic="false" instance_name="ChatView"></mutation>
+                <field name="COMPONENT_SELECTOR">ChatView</field>
+                <field name="PROP">WebViewString</field>
                 <value name="VALUE">
                   <block type="lexical_variable_get" id="concern-history-error-read">
                     <field name="VAR">global chatHistory</field>
@@ -700,12 +705,12 @@
         </value>
         <next>
           <block type="component_set_get" id="concern-clear-label">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-            <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-            <field name="PROP">Text</field>
+            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="WebViewer" set_or_get="set" property_name="WebViewString" is_generic="false" instance_name="ChatView"></mutation>
+            <field name="COMPONENT_SELECTOR">ChatView</field>
+            <field name="PROP">WebViewString</field>
             <value name="VALUE">
               <block type="text" id="concern-clear-label-text">
-                <field name="TEXT">No messages yet. Start the conversation below.</field>
+                <field name="TEXT"></field>
               </block>
             </value>
             <next>
@@ -734,6 +739,96 @@
             </next>
           </block>
         </next>
+      </block>
+    </statement>
+  </block>
+
+  <block type="component_event" id="concern-voice-click" x="-980" y="560">
+    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="VoiceButton" event_name="Click"></mutation>
+    <field name="COMPONENT_SELECTOR">VoiceButton</field>
+    <statement name="DO">
+      <block type="component_set_get" id="concern-status-listening">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+        <field name="COMPONENT_SELECTOR">StatusLabel</field>
+        <field name="PROP">Text</field>
+        <value name="VALUE">
+          <block type="text" id="concern-status-listening-text">
+            <field name="TEXT">Listening...</field>
+          </block>
+        </value>
+        <next>
+          <block type="component_method" id="concern-start-voice">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="SpeechRecognizer" method_name="GetText" is_generic="false" instance_name="SpeechRecognizer1"></mutation>
+            <field name="COMPONENT_SELECTOR">SpeechRecognizer1</field>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <block type="component_event" id="concern-voice-result" x="-520" y="560">
+    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="SpeechRecognizer" is_generic="false" instance_name="SpeechRecognizer1" event_name="AfterGettingText"></mutation>
+    <field name="COMPONENT_SELECTOR">SpeechRecognizer1</field>
+    <statement name="DO">
+      <block type="controls_if" id="concern-voice-result-check">
+        <mutation else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="concern-voice-result-empty">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="lexical_variable_get" id="concern-voice-text-read">
+                <mutation>
+                  <eventparam name="result"></eventparam>
+                </mutation>
+                <field name="VAR">result</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="concern-voice-text-empty">
+                <field name="TEXT"></field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="component_set_get" id="concern-status-no-voice">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+            <field name="COMPONENT_SELECTOR">StatusLabel</field>
+            <field name="PROP">Text</field>
+            <value name="VALUE">
+              <block type="text" id="concern-status-no-voice-text">
+                <field name="TEXT">No speech detected.</field>
+              </block>
+            </value>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="component_set_get" id="concern-fill-prompt-from-voice">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="set" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
+            <field name="COMPONENT_SELECTOR">PromptTextBox</field>
+            <field name="PROP">Text</field>
+            <value name="VALUE">
+              <block type="lexical_variable_get" id="concern-voice-text-value">
+                <mutation>
+                  <eventparam name="result"></eventparam>
+                </mutation>
+                <field name="VAR">result</field>
+              </block>
+            </value>
+            <next>
+              <block type="component_set_get" id="concern-status-voice-ready">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+                <field name="COMPONENT_SELECTOR">StatusLabel</field>
+                <field name="PROP">Text</field>
+                <value name="VALUE">
+                  <block type="text" id="concern-status-voice-ready-text">
+                    <field name="TEXT">Voice text added. Tap Send when ready.</field>
+                  </block>
+                </value>
+              </block>
+            </next>
+          </block>
+        </statement>
       </block>
     </statement>
   </block>

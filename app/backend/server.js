@@ -724,6 +724,30 @@ function shouldLeadWithMaitriTag(topic) {
   return normalized === "scholarships" || normalized === "internships";
 }
 
+function ensureMaitriOpening(topic, language, text) {
+  if (!shouldLeadWithMaitriTag(topic)) {
+    return text;
+  }
+
+  const trimmed = String(text || "").trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (/maitri/i.test(trimmed.split(/[\r\n]/)[0])) {
+    return trimmed;
+  }
+
+  let prefix = "Many of your seniors from Maitri have shared similar worries. ";
+  if (language === "hinglish") {
+    prefix = "Maitri ki bahut si seniors ne aise concerns share kiye hain. ";
+  } else if (language === "hindi") {
+    prefix = "Maitri ki bahut si seniors ne aisi chintayein share ki hain. ";
+  }
+
+  return `${prefix}${trimmed}`;
+}
+
 function buildReflectivePrompt({ message, stage, topic, peerSnippets, history, language }) {
   const parts = [
     "mode: reflective",
@@ -989,7 +1013,7 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
         }
       }
 
-      return result.text;
+      return ensureMaitriOpening(topic, language, result.text);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
