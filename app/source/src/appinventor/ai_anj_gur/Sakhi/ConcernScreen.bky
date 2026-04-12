@@ -1,5 +1,5 @@
 <xml xmlns="https://developers.google.com/blockly/xml">
-  <block type="global_declaration" id="concern-global-stage" x="-990" y="-540">
+  <block type="global_declaration" id="concern-global-stage" x="-980" y="-560">
     <field name="NAME">stage</field>
     <value name="VALUE">
       <block type="text" id="concern-stage-empty">
@@ -7,15 +7,40 @@
       </block>
     </value>
   </block>
-  <block type="global_declaration" id="concern-global-backend" x="-780" y="-540">
-    <field name="NAME">backendUrl</field>
+  <block type="global_declaration" id="concern-global-topic" x="-860" y="-560">
+    <field name="NAME">topic</field>
     <value name="VALUE">
-      <block type="text" id="concern-backend-default">
-        <field name="TEXT">https://your-backend.example.com/sakhi-reflect?stage=</field>
+      <block type="text" id="concern-topic-empty">
+        <field name="TEXT">open concern</field>
       </block>
     </value>
   </block>
-  <block type="component_event" id="concern-init" x="-990" y="-450">
+  <block type="global_declaration" id="concern-global-backend" x="-760" y="-560">
+    <field name="NAME">backendUrl</field>
+    <value name="VALUE">
+      <block type="text" id="concern-backend-default">
+        <field name="TEXT">https://maitriaspire.org/sakhi-api/api/chat-text?token=278c4a86c8064d6caa1a3014d71107aafe28a529317748f3b8f653067c0bd016&amp;stage=</field>
+      </block>
+    </value>
+  </block>
+  <block type="global_declaration" id="concern-global-history" x="-420" y="-560">
+    <field name="NAME">chatHistory</field>
+    <value name="VALUE">
+      <block type="text" id="concern-history-empty">
+        <field name="TEXT"></field>
+      </block>
+    </value>
+  </block>
+  <block type="global_declaration" id="concern-global-last-user" x="-160" y="-560">
+    <field name="NAME">lastUserMessage</field>
+    <value name="VALUE">
+      <block type="text" id="concern-last-user-empty">
+        <field name="TEXT"></field>
+      </block>
+    </value>
+  </block>
+
+  <block type="component_event" id="concern-init" x="-980" y="-420">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Form" is_generic="false" instance_name="ConcernScreen" event_name="Initialize"></mutation>
     <field name="COMPONENT_SELECTOR">ConcernScreen</field>
     <statement name="DO">
@@ -26,98 +51,70 @@
             <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TinyDB" method_name="GetValue" is_generic="false" instance_name="TinyDB1"></mutation>
             <field name="COMPONENT_SELECTOR">TinyDB1</field>
             <value name="ARG0">
-              <block type="text" id="concern-get-stage-key">
+              <block type="text" id="concern-stage-key">
                 <field name="TEXT">stage</field>
               </block>
             </value>
             <value name="ARG1">
-              <block type="text" id="concern-get-stage-default">
+              <block type="text" id="concern-stage-default">
                 <field name="TEXT">Not selected</field>
               </block>
             </value>
           </block>
         </value>
         <next>
-          <block type="component_set_get" id="concern-stage-label">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StageValueLabel"></mutation>
-            <field name="COMPONENT_SELECTOR">StageValueLabel</field>
-            <field name="PROP">Text</field>
+          <block type="lexical_variable_set" id="concern-set-topic">
+            <field name="VAR">global topic</field>
             <value name="VALUE">
-              <block type="lexical_variable_get" id="concern-stage-read">
-                <field name="VAR">global stage</field>
-              </block>
-            </value>
-          </block>
-        </next>
-      </block>
-    </statement>
-  </block>
-  <block type="component_event" id="concern-reflect-click" x="-990" y="-210">
-    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="ReflectButton" event_name="Click"></mutation>
-    <field name="COMPONENT_SELECTOR">ReflectButton</field>
-    <statement name="DO">
-      <block type="component_set_get" id="concern-status-thinking">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
-        <field name="COMPONENT_SELECTOR">StatusLabel</field>
-        <field name="PROP">Text</field>
-        <value name="VALUE">
-          <block type="text" id="concern-status-thinking-text">
-            <field name="TEXT">Sakhi is thinking...</field>
-          </block>
-        </value>
-        <next>
-          <block type="component_set_get" id="concern-set-url">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" set_or_get="set" property_name="Url" is_generic="false" instance_name="SakhiWeb"></mutation>
-            <field name="COMPONENT_SELECTOR">SakhiWeb</field>
-            <field name="PROP">Url</field>
-            <value name="VALUE">
-              <block type="text_join" id="concern-url-join">
-                <mutation items="5"></mutation>
-                <value name="ADD0">
-                  <block type="lexical_variable_get" id="concern-backend-read">
-                    <field name="VAR">global backendUrl</field>
+              <block type="component_method" id="concern-get-topic">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TinyDB" method_name="GetValue" is_generic="false" instance_name="TinyDB1"></mutation>
+                <field name="COMPONENT_SELECTOR">TinyDB1</field>
+                <value name="ARG0">
+                  <block type="text" id="concern-topic-key">
+                    <field name="TEXT">topic</field>
                   </block>
                 </value>
-                <value name="ADD1">
-                  <block type="component_method" id="concern-encode-stage">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
-                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
-                    <value name="ARG0">
-                      <block type="lexical_variable_get" id="concern-stage-arg">
-                        <field name="VAR">global stage</field>
-                      </block>
-                    </value>
-                  </block>
-                </value>
-                <value name="ADD2">
-                  <block type="text" id="concern-url-mid1">
-                    <field name="TEXT">&amp;message=</field>
-                  </block>
-                </value>
-                <value name="ADD3">
-                  <block type="component_method" id="concern-encode-message">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
-                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
-                    <value name="ARG0">
-                      <block type="component_set_get" id="concern-message-text">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
-                        <field name="COMPONENT_SELECTOR">PromptTextBox</field>
-                        <field name="PROP">Text</field>
-                      </block>
-                    </value>
-                  </block>
-                </value>
-                <value name="ADD4">
-                  <block type="text" id="concern-url-tail">
-                    <field name="TEXT">&amp;source=appinventor</field>
+                <value name="ARG1">
+                  <block type="text" id="concern-topic-default">
+                    <field name="TEXT">open concern</field>
                   </block>
                 </value>
               </block>
             </value>
             <next>
-              <block type="component_method" id="concern-web-get">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="Get" is_generic="false" instance_name="SakhiWeb"></mutation>
-                <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+              <block type="component_set_get" id="concern-show-stage">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StageValueLabel"></mutation>
+                <field name="COMPONENT_SELECTOR">StageValueLabel</field>
+                <field name="PROP">Text</field>
+                <value name="VALUE">
+                  <block type="lexical_variable_get" id="concern-stage-read">
+                    <field name="VAR">global stage</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="component_set_get" id="concern-show-topic">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="TopicValueLabel"></mutation>
+                    <field name="COMPONENT_SELECTOR">TopicValueLabel</field>
+                    <field name="PROP">Text</field>
+                    <value name="VALUE">
+                      <block type="lexical_variable_get" id="concern-topic-read">
+                        <field name="VAR">global topic</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="component_set_get" id="concern-show-empty-chat">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
+                        <field name="COMPONENT_SELECTOR">ReplyLabel</field>
+                        <field name="PROP">Text</field>
+                        <value name="VALUE">
+                          <block type="text" id="concern-empty-chat-text">
+                            <field name="TEXT">No messages yet. Start the conversation below.</field>
+                          </block>
+                        </value>
+                      </block>
+                    </next>
+                  </block>
+                </next>
               </block>
             </next>
           </block>
@@ -125,14 +122,245 @@
       </block>
     </statement>
   </block>
-  <block type="component_event" id="concern-got-text" x="-180" y="-450">
+
+  <block type="component_event" id="concern-send-click" x="-980" y="-130">
+    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="ReflectButton" event_name="Click"></mutation>
+    <field name="COMPONENT_SELECTOR">ReflectButton</field>
+    <statement name="DO">
+      <block type="controls_if" id="concern-check-empty">
+        <mutation else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="concern-input-empty-check">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="component_set_get" id="concern-input-read">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
+                <field name="COMPONENT_SELECTOR">PromptTextBox</field>
+                <field name="PROP">Text</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="concern-empty-text">
+                <field name="TEXT"></field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="component_set_get" id="concern-status-empty">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+            <field name="COMPONENT_SELECTOR">StatusLabel</field>
+            <field name="PROP">Text</field>
+            <value name="VALUE">
+              <block type="text" id="concern-status-empty-text">
+                <field name="TEXT">Type a message first.</field>
+              </block>
+            </value>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="lexical_variable_set" id="concern-save-last-user">
+            <field name="VAR">global lastUserMessage</field>
+            <value name="VALUE">
+              <block type="component_set_get" id="concern-last-user-value">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="get" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
+                <field name="COMPONENT_SELECTOR">PromptTextBox</field>
+                <field name="PROP">Text</field>
+              </block>
+            </value>
+            <next>
+              <block type="controls_if" id="concern-append-user">
+                <mutation else="1"></mutation>
+                <value name="IF0">
+                  <block type="logic_compare" id="concern-history-is-empty">
+                    <field name="OP">EQ</field>
+                    <value name="A">
+                      <block type="lexical_variable_get" id="concern-history-read-before-user">
+                        <field name="VAR">global chatHistory</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="text" id="concern-history-blank">
+                        <field name="TEXT"></field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
+                <statement name="DO0">
+                  <block type="lexical_variable_set" id="concern-set-first-user-message">
+                    <field name="VAR">global chatHistory</field>
+                    <value name="VALUE">
+                      <block type="text_join" id="concern-first-user-join">
+                        <mutation items="2"></mutation>
+                        <value name="ADD0">
+                          <block type="text" id="concern-you-text-first">
+                            <field name="TEXT">You: </field>
+                          </block>
+                        </value>
+                        <value name="ADD1">
+                          <block type="lexical_variable_get" id="concern-first-user-read">
+                            <field name="VAR">global lastUserMessage</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </statement>
+                <statement name="ELSE">
+                  <block type="lexical_variable_set" id="concern-set-next-user-message">
+                    <field name="VAR">global chatHistory</field>
+                    <value name="VALUE">
+                      <block type="text_join" id="concern-next-user-join">
+                        <mutation items="4"></mutation>
+                        <value name="ADD0">
+                          <block type="lexical_variable_get" id="concern-history-read-existing">
+                            <field name="VAR">global chatHistory</field>
+                          </block>
+                        </value>
+                        <value name="ADD1">
+                          <block type="text" id="concern-history-gap">
+                            <field name="TEXT">
+
+</field>
+                          </block>
+                        </value>
+                        <value name="ADD2">
+                          <block type="text" id="concern-you-text-next">
+                            <field name="TEXT">You: </field>
+                          </block>
+                        </value>
+                        <value name="ADD3">
+                          <block type="lexical_variable_get" id="concern-next-user-read">
+                            <field name="VAR">global lastUserMessage</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </statement>
+                <next>
+                  <block type="component_set_get" id="concern-show-history-after-user">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
+                    <field name="COMPONENT_SELECTOR">ReplyLabel</field>
+                    <field name="PROP">Text</field>
+                    <value name="VALUE">
+                      <block type="lexical_variable_get" id="concern-history-read-after-user">
+                        <field name="VAR">global chatHistory</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="component_set_get" id="concern-status-thinking">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+                        <field name="COMPONENT_SELECTOR">StatusLabel</field>
+                        <field name="PROP">Text</field>
+                        <value name="VALUE">
+                          <block type="text" id="concern-status-thinking-text">
+                            <field name="TEXT">Sakhi is replying...</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="component_set_get" id="concern-set-url">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" set_or_get="set" property_name="Url" is_generic="false" instance_name="SakhiWeb"></mutation>
+                            <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                            <field name="PROP">Url</field>
+                            <value name="VALUE">
+                              <block type="text_join" id="concern-url-join">
+                                <mutation items="7"></mutation>
+                                <value name="ADD0">
+                                  <block type="lexical_variable_get" id="concern-backend-read">
+                                    <field name="VAR">global backendUrl</field>
+                                  </block>
+                                </value>
+                                <value name="ADD1">
+                                  <block type="component_method" id="concern-encode-stage">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
+                                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                                    <value name="ARG0">
+                                      <block type="lexical_variable_get" id="concern-stage-read-send">
+                                        <field name="VAR">global stage</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <value name="ADD2">
+                                  <block type="text" id="concern-url-middle">
+                                    <field name="TEXT">&amp;message=</field>
+                                  </block>
+                                </value>
+                                <value name="ADD3">
+                                  <block type="component_method" id="concern-encode-message">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
+                                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                                    <value name="ARG0">
+                                      <block type="lexical_variable_get" id="concern-last-user-read-send">
+                                        <field name="VAR">global lastUserMessage</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <value name="ADD4">
+                                  <block type="text" id="concern-url-topic-prefix">
+                                    <field name="TEXT">&amp;topic=</field>
+                                  </block>
+                                </value>
+                                <value name="ADD5">
+                                  <block type="component_method" id="concern-encode-topic">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
+                                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                                    <value name="ARG0">
+                                      <block type="lexical_variable_get" id="concern-topic-read-send">
+                                        <field name="VAR">global topic</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <value name="ADD6">
+                                  <block type="text" id="concern-url-tail">
+                                    <field name="TEXT">&amp;source=appinventor</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="component_set_get" id="concern-clear-input-box">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="set" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
+                                <field name="COMPONENT_SELECTOR">PromptTextBox</field>
+                                <field name="PROP">Text</field>
+                                <value name="VALUE">
+                                  <block type="text" id="concern-clear-input-text">
+                                    <field name="TEXT"></field>
+                                  </block>
+                                </value>
+                                <next>
+                                  <block type="component_method" id="concern-web-get">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="Get" is_generic="false" instance_name="SakhiWeb"></mutation>
+                                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </statement>
+      </block>
+    </statement>
+  </block>
+
+  <block type="component_event" id="concern-got-text" x="-150" y="-130">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" is_generic="false" instance_name="SakhiWeb" event_name="GotText"></mutation>
     <field name="COMPONENT_SELECTOR">SakhiWeb</field>
     <statement name="DO">
-      <block type="controls_if" id="concern-if-response">
+      <block type="controls_if" id="concern-response-if">
         <mutation else="1"></mutation>
         <value name="IF0">
-          <block type="math_compare" id="concern-response-check">
+          <block type="logic_compare" id="concern-response-code-check">
             <field name="OP">EQ</field>
             <value name="A">
               <block type="lexical_variable_get" id="concern-response-code">
@@ -143,59 +371,167 @@
               </block>
             </value>
             <value name="B">
-              <block type="math_number" id="concern-200">
+              <block type="math_number" id="concern-response-200">
                 <field name="NUM">200</field>
               </block>
             </value>
           </block>
         </value>
         <statement name="DO0">
-          <block type="component_set_get" id="concern-reply-ok">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-            <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-            <field name="PROP">Text</field>
+          <block type="lexical_variable_set" id="concern-append-sakhi-message">
+            <field name="VAR">global chatHistory</field>
             <value name="VALUE">
-              <block type="lexical_variable_get" id="concern-response-content">
-                <mutation>
-                  <eventparam name="responseContent"></eventparam>
-                </mutation>
-                <field name="VAR">responseContent</field>
+              <block type="text_join" id="concern-sakhi-join">
+                <mutation items="4"></mutation>
+                <value name="ADD0">
+                  <block type="lexical_variable_get" id="concern-history-before-sakhi">
+                    <field name="VAR">global chatHistory</field>
+                  </block>
+                </value>
+                <value name="ADD1">
+                  <block type="text" id="concern-sakhi-gap">
+                    <field name="TEXT">
+
+</field>
+                  </block>
+                </value>
+                <value name="ADD2">
+                  <block type="text" id="concern-sakhi-prefix">
+                    <field name="TEXT">Sakhi: </field>
+                  </block>
+                </value>
+                <value name="ADD3">
+                  <block type="lexical_variable_get" id="concern-response-text">
+                    <mutation>
+                      <eventparam name="responseContent"></eventparam>
+                    </mutation>
+                    <field name="VAR">responseContent</field>
+                  </block>
+                </value>
               </block>
             </value>
             <next>
-              <block type="component_set_get" id="concern-status-done">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">StatusLabel</field>
+              <block type="component_set_get" id="concern-show-history-after-sakhi">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
+                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
                 <field name="PROP">Text</field>
                 <value name="VALUE">
-                  <block type="text" id="concern-status-done-text">
-                    <field name="TEXT">Reflection ready.</field>
+                  <block type="lexical_variable_get" id="concern-history-final-read">
+                    <field name="VAR">global chatHistory</field>
                   </block>
                 </value>
+                <next>
+                  <block type="component_set_get" id="concern-status-done">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+                    <field name="COMPONENT_SELECTOR">StatusLabel</field>
+                    <field name="PROP">Text</field>
+                    <value name="VALUE">
+                      <block type="text" id="concern-status-done-text">
+                        <field name="TEXT">Sakhi replied.</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
               </block>
             </next>
           </block>
         </statement>
         <statement name="ELSE">
-          <block type="component_set_get" id="concern-reply-error">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-            <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-            <field name="PROP">Text</field>
+          <block type="lexical_variable_set" id="concern-append-error-message">
+            <field name="VAR">global chatHistory</field>
             <value name="VALUE">
-              <block type="text" id="concern-error-text">
-                <field name="TEXT">Sakhi could not reach the backend right now. Please try again shortly.</field>
+              <block type="text_join" id="concern-error-join">
+                <mutation items="6"></mutation>
+                <value name="ADD0">
+                  <block type="lexical_variable_get" id="concern-history-before-error">
+                    <field name="VAR">global chatHistory</field>
+                  </block>
+                </value>
+                <value name="ADD1">
+                  <block type="text" id="concern-error-gap">
+                    <field name="TEXT">
+
+</field>
+                  </block>
+                </value>
+                <value name="ADD2">
+                  <block type="text" id="concern-error-prefix">
+                    <field name="TEXT">Sakhi: </field>
+                  </block>
+                </value>
+                <value name="ADD3">
+                  <block type="text" id="concern-error-code-prefix">
+                    <field name="TEXT">Request failed (</field>
+                  </block>
+                </value>
+                <value name="ADD4">
+                  <block type="lexical_variable_get" id="concern-error-code-read">
+                    <mutation>
+                      <eventparam name="responseCode"></eventparam>
+                    </mutation>
+                    <field name="VAR">responseCode</field>
+                  </block>
+                </value>
+                <value name="ADD5">
+                  <block type="text_join" id="concern-error-body">
+                    <mutation items="3"></mutation>
+                    <value name="ADD0">
+                      <block type="text" id="concern-error-suffix">
+                        <field name="TEXT">): </field>
+                      </block>
+                    </value>
+                    <value name="ADD1">
+                      <block type="lexical_variable_get" id="concern-error-response-text">
+                        <mutation>
+                          <eventparam name="responseContent"></eventparam>
+                        </mutation>
+                        <field name="VAR">responseContent</field>
+                      </block>
+                    </value>
+                    <value name="ADD2">
+                      <block type="text" id="concern-error-end">
+                        <field name="TEXT"></field>
+                      </block>
+                    </value>
+                  </block>
+                </value>
               </block>
             </value>
             <next>
-              <block type="component_set_get" id="concern-status-error">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">StatusLabel</field>
+              <block type="component_set_get" id="concern-show-history-after-error">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
+                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
                 <field name="PROP">Text</field>
                 <value name="VALUE">
-                  <block type="text" id="concern-status-error-text">
-                    <field name="TEXT">Backend unavailable.</field>
+                  <block type="lexical_variable_get" id="concern-history-error-read">
+                    <field name="VAR">global chatHistory</field>
                   </block>
                 </value>
+                <next>
+                  <block type="component_set_get" id="concern-status-error">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+                    <field name="COMPONENT_SELECTOR">StatusLabel</field>
+                    <field name="PROP">Text</field>
+                    <value name="VALUE">
+                      <block type="text_join" id="concern-status-error-text">
+                        <mutation items="2"></mutation>
+                        <value name="ADD0">
+                          <block type="text" id="concern-status-error-prefix">
+                            <field name="TEXT">Request failed: </field>
+                          </block>
+                        </value>
+                        <value name="ADD1">
+                          <block type="lexical_variable_get" id="concern-status-error-code">
+                            <mutation>
+                              <eventparam name="responseCode"></eventparam>
+                            </mutation>
+                            <field name="VAR">responseCode</field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                  </block>
+                </next>
               </block>
             </next>
           </block>
@@ -203,39 +539,50 @@
       </block>
     </statement>
   </block>
-  <block type="component_event" id="concern-clear-click" x="-990" y="150">
+
+  <block type="component_event" id="concern-clear-chat" x="-980" y="300">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="ClearButton" event_name="Click"></mutation>
     <field name="COMPONENT_SELECTOR">ClearButton</field>
     <statement name="DO">
-      <block type="component_set_get" id="concern-clear-text">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="set" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
-        <field name="COMPONENT_SELECTOR">PromptTextBox</field>
-        <field name="PROP">Text</field>
+      <block type="lexical_variable_set" id="concern-clear-history">
+        <field name="VAR">global chatHistory</field>
         <value name="VALUE">
-          <block type="text" id="concern-clear-empty">
+          <block type="text" id="concern-clear-history-empty">
             <field name="TEXT"></field>
           </block>
         </value>
         <next>
-          <block type="component_set_get" id="concern-clear-reply">
+          <block type="component_set_get" id="concern-clear-label">
             <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
             <field name="COMPONENT_SELECTOR">ReplyLabel</field>
             <field name="PROP">Text</field>
             <value name="VALUE">
-              <block type="text" id="concern-clear-reply-text">
-                <field name="TEXT">Your reflection will appear here.</field>
+              <block type="text" id="concern-clear-label-text">
+                <field name="TEXT">No messages yet. Start the conversation below.</field>
               </block>
             </value>
             <next>
-              <block type="component_set_get" id="concern-clear-status">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">StatusLabel</field>
+              <block type="component_set_get" id="concern-clear-input-field">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TextBox" set_or_get="set" property_name="Text" is_generic="false" instance_name="PromptTextBox"></mutation>
+                <field name="COMPONENT_SELECTOR">PromptTextBox</field>
                 <field name="PROP">Text</field>
                 <value name="VALUE">
-                  <block type="text" id="concern-clear-status-text">
-                    <field name="TEXT">Sakhi is ready.</field>
+                  <block type="text" id="concern-clear-input-empty-text">
+                    <field name="TEXT"></field>
                   </block>
                 </value>
+                <next>
+                  <block type="component_set_get" id="concern-clear-status">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StatusLabel"></mutation>
+                    <field name="COMPONENT_SELECTOR">StatusLabel</field>
+                    <field name="PROP">Text</field>
+                    <value name="VALUE">
+                      <block type="text" id="concern-status-ready-text">
+                        <field name="TEXT">Sakhi is ready.</field>
+                      </block>
+                    </value>
+                  </block>
+                </next>
               </block>
             </next>
           </block>
@@ -243,20 +590,75 @@
       </block>
     </statement>
   </block>
-  <block type="component_event" id="concern-back-click" x="-180" y="180">
+
+  <block type="component_event" id="concern-back-click" x="-150" y="300">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="BackButton" event_name="Click"></mutation>
     <field name="COMPONENT_SELECTOR">BackButton</field>
     <statement name="DO">
-      <block type="controls_openAnotherScreen" id="concern-back-open">
-        <value name="SCREEN">
-          <block type="helpers_screen_names" id="concern-back-screen">
-            <field name="SCREEN">StageScreen</field>
+      <block type="controls_if" id="concern-back-branch">
+        <mutation elseif="1" else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare" id="concern-back-school-check">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="lexical_variable_get" id="concern-back-stage-school">
+                <field name="VAR">global stage</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="concern-back-school-text">
+                <field name="TEXT">School</field>
+              </block>
+            </value>
           </block>
         </value>
+        <statement name="DO0">
+          <block type="controls_openAnotherScreen" id="concern-back-open-school">
+            <value name="SCREEN">
+              <block type="helpers_screen_names" id="concern-back-screen-school">
+                <field name="SCREEN">SchoolChoiceScreen</field>
+              </block>
+            </value>
+          </block>
+        </statement>
+        <value name="IF1">
+          <block type="logic_compare" id="concern-back-college-check">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="lexical_variable_get" id="concern-back-stage-college">
+                <field name="VAR">global stage</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="text" id="concern-back-college-text">
+                <field name="TEXT">College</field>
+              </block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO1">
+          <block type="controls_openAnotherScreen" id="concern-back-open-college">
+            <value name="SCREEN">
+              <block type="helpers_screen_names" id="concern-back-screen-college">
+                <field name="SCREEN">CollegeChoiceScreen</field>
+              </block>
+            </value>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="controls_openAnotherScreen" id="concern-back-open-stage">
+            <value name="SCREEN">
+              <block type="helpers_screen_names" id="concern-back-screen-stage">
+                <field name="SCREEN">StageScreen</field>
+              </block>
+            </value>
+          </block>
+        </statement>
       </block>
     </statement>
   </block>
-  <block type="component_event" id="concern-about-click" x="-180" y="280">
+
+  <block type="component_event" id="concern-about-click" x="-150" y="390">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="AboutButton" event_name="Click"></mutation>
     <field name="COMPONENT_SELECTOR">AboutButton</field>
     <statement name="DO">
@@ -269,5 +671,20 @@
       </block>
     </statement>
   </block>
+
+  <block type="component_event" id="concern-stage-click" x="-150" y="480">
+    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Button" is_generic="false" instance_name="StageButton" event_name="Click"></mutation>
+    <field name="COMPONENT_SELECTOR">StageButton</field>
+    <statement name="DO">
+      <block type="controls_openAnotherScreen" id="concern-stage-open">
+        <value name="SCREEN">
+          <block type="helpers_screen_names" id="concern-stage-screen">
+            <field name="SCREEN">StageScreen</field>
+          </block>
+        </value>
+      </block>
+    </statement>
+  </block>
+
   <yacodeblocks xmlns="https://appinventor.mit.edu/ns/project/" ya-version="233" language-version="38"></yacodeblocks>
 </xml>

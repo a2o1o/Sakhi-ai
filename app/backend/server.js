@@ -3,51 +3,44 @@ import cors from "cors";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 import { GoogleGenAI } from "@google/genai";
+
+const __filename = fileURLToPath(import.meta.url);
+const backendDir = path.dirname(__filename);
+const repoRoot = path.resolve(backendDir, "../..");
+const publicDir = path.join(backendDir, "public");
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const allowedOrigin = process.env.ALLOWED_ORIGIN || "*";
 const sharedAccessToken = process.env.APP_ACCESS_TOKEN || "";
 const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const maxOutputTokens = Number(process.env.MAX_OUTPUT_TOKENS || 1100);
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const extraInstructions = process.env.CUSTOM_GPT_INSTRUCTIONS || "";
 
-const systemPrompt =
-  process.env.CUSTOM_GPT_INSTRUCTIONS ||
-  [
-    "You are Sakhi, a reflection companion created within the Maitri community for girls and young women.",
-    "Your tone is warm, calm, non-judgmental, and slightly reflective.",
-    "You should sound like a steady, slightly older peer who understands both emotions and practical life.",
-    "Do not sound clinical, preachy, robotic, or like a lecturer.",
-    "Do not sound like a therapist opening a session.",
-    "For greetings, small talk, or very short messages, respond lightly, openly, and humanly in 1 or 2 sentences.",
-    "Example greeting style: 'Hey :) what's on your mind?'",
-    "If the user is vague or nervous, gently open space without interrogating or assuming.",
-    "If the user seems upset, slow down, validate briefly, and be less solution-heavy at first.",
-    "Start warm, then move toward clarity. Do not start blunt unless the user explicitly asks for bluntness.",
-    "Default response length is medium, usually around 5 to 10 sentences for a real concern.",
-    "For casual messages keep it short. For emotional confusion or meaningful dilemmas you may be a little fuller.",
-    "Use reflection first, then optional guidance. Do not jump straight into advice.",
-    "If the user is overwhelmed, offer one simple next step.",
-    "If the user is confused and choosing among paths, offer 2 to 3 clear options or ways to think about it.",
-    "If the user is emotional, reflect first. If the user is stuck, suggest a small action. If the user asks what to do, give structured choices without deciding for them.",
-    "Ground the response in anonymized Maitri peer experience when it is genuinely relevant.",
-    "When using peer grounding, prefer phrasing like 'Some of your peers and seniors from the Maitri community have shared things like...' only when that helps the user feel less alone.",
-    "Use at most 1 or 2 peer references. Never use names or identifying details.",
-    "Do not use peer grounding for crisis, immediate distress, very personal confidential disclosures, or when the user just wants a quick action answer.",
-    "Never say anything about databases, surveys, spreadsheets, datasets, training data, hidden files, or internal sources.",
-    "Never make decisions for the user.",
-    "Never diagnose mental health conditions.",
-    "Never say a major life choice is definitely the right choice.",
-    "Do not overpromise outcomes.",
-    "If the user says 'just tell me what to do', respond with a boundary like 'I can help you think through it, but I don't want to decide for you.'",
-    "For serious concerns, your ideal flow is: acknowledge, reflect the feeling, lightly normalize, optionally add peer grounding, offer a shift or reframe, give one small next step, and optionally end with one focused question.",
-    "Do not just summarize the user's problem back to them.",
-    "Move the conversation forward.",
-    "Use natural phrasing and vary sentence length. It is okay to sound human with words like 'honestly', 'sometimes', or 'it can feel like' when natural.",
-    "Prefer clarity over cleverness, and leave the user feeling a little more steady than before."
-  ].join(" ");
+const baseSystemPrompt = [
+  "You are Sakhi, a warm reflection companion for girls and young women in the Maitri community.",
+  "Sound like a thoughtful peer, not a lecturer, therapist, or authority figure.",
+  "Be calm, human, non-judgmental, and clear.",
+  "Match the user's language naturally. If the user writes in English, reply in English. If the user writes in Hinglish, reply in Hinglish. If the user writes in Hindi, reply in Hindi.",
+  "Reflect first, then offer useful next steps only if they help.",
+  "For greetings or very short messages, reply lightly in 1 or 2 sentences.",
+  "For meaningful concerns, aim for 4 to 8 sentences unless the user clearly wants more.",
+  "If the user is overwhelmed, keep it simple and offer one small next step.",
+  "If the user is choosing between paths, give 2 or 3 ways to think about it without deciding for them.",
+  "Use anonymized peer grounding only when genuinely relevant and keep it subtle.",
+  "Never use names or identifying details.",
+  "Never mention datasets, internal sources, files, or hidden context.",
+  "Never diagnose, prescribe, or overpromise.",
+  "Do not just restate the problem. Move the conversation forward."
+].join(" ");
+
+const systemPrompt = extraInstructions
+  ? `${baseSystemPrompt}\n\nAdditional instructions:\n${extraInstructions}`
+  : baseSystemPrompt;
 
 const ignoredColumns = [
   "timestamp",
@@ -63,11 +56,18 @@ const ignoredColumns = [
 ];
 
 const stageFileMap = {
-  school: process.env.SCHOOL_RESPONSES_CSV || "./data/Maitri-school-responses.csv",
-  college: process.env.COLLEGE_RESPONSES_CSV || "./data/Maitri-college-responses.csv",
+  school:
+    process.env.SCHOOL_RESPONSES_CSV ||
+    path.join(repoRoot, "data", "Maitri-school-responses.csv"),
+  college:
+    process.env.COLLEGE_RESPONSES_CSV ||
+    path.join(repoRoot, "data", "Maitri-college-responses.csv"),
   "early work":
-    process.env.WORKING_WOMEN_RESPONSES_CSV || "./data/Maitri-working-women-responses.csv",
-  work: process.env.WORKING_WOMEN_RESPONSES_CSV || "./data/Maitri-working-women-responses.csv"
+    process.env.WORKING_WOMEN_RESPONSES_CSV ||
+    path.join(repoRoot, "data", "Maitri-working-women-responses.csv"),
+  work:
+    process.env.WORKING_WOMEN_RESPONSES_CSV ||
+    path.join(repoRoot, "data", "Maitri-working-women-responses.csv")
 };
 
 function normalizeStage(stage) {
@@ -89,7 +89,7 @@ function normalizeHeader(value) {
 function tokenize(text) {
   return String(text || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^a-z0-9\u0900-\u097F\s]/g, " ")
     .split(/\s+/)
     .filter((token) => token.length > 2);
 }
@@ -97,18 +97,7 @@ function tokenize(text) {
 function classifyMessage(message) {
   const trimmed = String(message || "").trim();
   const lowered = trimmed.toLowerCase();
-  const tokens = tokenize(trimmed);
-
-  const greetingOnly = [
-    "hi",
-    "hey",
-    "hello",
-    "hii",
-    "heyy",
-    "yo",
-    "sup"
-  ].includes(lowered);
-
+  const greetingOnly = /^(hi+|hey+|hello|yo+|sup)\b[.!? ]*$/i.test(trimmed);
   const casualPatterns = [
     "how are you",
     "what's up",
@@ -118,55 +107,131 @@ function classifyMessage(message) {
     "good afternoon"
   ];
 
-  const concernSignals = [
-    "lost",
-    "confused",
-    "pressure",
-    "worried",
-    "anxious",
-    "stress",
-    "stressed",
-    "friendship",
-    "friends",
-    "family",
-    "behind",
-    "compare",
-    "comparison",
-    "self doubt",
-    "doubt",
-    "career",
-    "future",
-    "college",
-    "work",
-    "job",
-    "scholarship",
-    "money",
-    "lonely",
-    "alone",
-    "scared",
-    "fail",
-    "failing",
-    "hate",
-    "upset",
-    "sad"
-  ];
-
-  if (
-    greetingOnly ||
-    casualPatterns.some((pattern) => lowered.includes(pattern)) ||
-    (tokens.length <= 3 && !concernSignals.some((signal) => lowered.includes(signal)))
-  ) {
+  if (greetingOnly || casualPatterns.some((pattern) => lowered.includes(pattern))) {
     return "casual";
   }
 
   return "reflective";
 }
 
+function detectLanguage(message) {
+  const text = String(message || "").trim();
+  const lowered = text.toLowerCase();
+  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  const hinglishMarkers = [
+    "mujhe",
+    "mera",
+    "meri",
+    "kyu",
+    "kyun",
+    "nahi",
+    "nahin",
+    "hai",
+    "hoon",
+    "karna",
+    "karni",
+    "karu",
+    "karun",
+    "kya",
+    "kaise",
+    "acha",
+    "accha",
+    "samajh",
+    "bata",
+    "batao",
+    "lag",
+    "raha",
+    "rahi",
+    "chahiye"
+  ];
+  const latinWords = lowered.match(/[a-z]+/g) || [];
+  const hinglishHits = hinglishMarkers.filter((word) => lowered.includes(word)).length;
+
+  if (hasDevanagari && latinWords.length > 0) return "hinglish";
+  if (hasDevanagari) return "hindi";
+  if (hinglishHits >= 2) return "hinglish";
+  return "english";
+}
+
+function getLanguageInstruction(language) {
+  if (language === "hindi") return "Reply fully in Hindi.";
+  if (language === "hinglish") {
+    return "Reply naturally in Hinglish, using the same kind of Hindi-English mix as the user.";
+  }
+  return "Reply fully in English.";
+}
+
+function isHighRiskMessage(message) {
+  const text = String(message || "").toLowerCase();
+  const patterns = [
+    "suicide",
+    "kill myself",
+    "end my life",
+    "want to die",
+    "don't want to live",
+    "self harm",
+    "self-harm",
+    "hurt myself",
+    "harm myself",
+    "cut myself",
+    "marna chahti",
+    "marna chahta",
+    "jeena nahi",
+    "jeena nahin",
+    "khud ko nuksan",
+    "khud ko maar",
+    "i want to disappear"
+  ];
+
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
+function getSafetyReply(language) {
+  if (language === "hindi") {
+    return "Mujhe lag raha hai ki aap abhi bahut zyada takleef mein ho. Agar aapko lag raha hai ki aap khud ko nuksan pahucha sakte ho, abhi kisi trusted insaan ko call kijiye ya unke paas jaiye. Agar immediate danger ho, apne local emergency number par abhi call kijiye. Aapko is waqt akela nahi rehna chahiye.";
+  }
+
+  if (language === "hinglish") {
+    return "Mujhe lag raha hai ki tum abhi bahut zyada distress mein ho. Agar tumhe lag raha hai ki tum khud ko nuksan pahucha sakti ho, please abhi kisi trusted person ko call karo ya unke paas chale jao. Agar immediate danger hai, apne local emergency number par abhi call karo. Is waqt akeli mat raho.";
+  }
+
+  return "It sounds like you may be in immediate distress. If you might hurt yourself or are in immediate danger, call your local emergency number right now or go to a trusted person nearby immediately. Please do not stay alone with this right now.";
+}
+
+function getTemporaryFailureReply(language) {
+  if (language === "hindi") {
+    return "Sakhi abhi kaam nahi kar pa rahi hai. Kripya thodi der baad phir se try kijiye.";
+  }
+
+  if (language === "hinglish") {
+    return "Sakhi abhi kaam nahi kar pa rahi hai. Please thodi der baad phir se try karo.";
+  }
+
+  return "Sakhi is not working right now. Please come back a little later and try again.";
+}
+
+function isRetryableModelError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return /429|503|rate|quota|too many|service unavailable|overloaded|unavailable/.test(message);
+}
+
+function looksIncompleteResponse(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return true;
+  if (trimmed.length < 80) return false;
+  if (/[.!?)"'\u0964]$/.test(trimmed)) return false;
+  return /[a-z0-9\u0900-\u097F]$/i.test(trimmed);
+}
+
 function getCasualReply(message) {
   const lowered = String(message || "").trim().toLowerCase();
 
-  if (["hi", "hii", "hey", "heyy", "hello"].includes(lowered)) {
+  if (/^(hi+|hey+|hello)\b/.test(lowered)) {
     return "Hey :) what's on your mind?";
+  }
+
+  if (lowered === "sup" || lowered.startsWith("yo") || lowered.startsWith("yoo")) {
+    return "yo :) what's up?";
   }
 
   if (lowered.includes("how are you")) {
@@ -177,12 +242,15 @@ function getCasualReply(message) {
 }
 
 function resolveDataFile(filePath) {
-  return path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+  if (!filePath) {
+    return "";
+  }
+  return path.isAbsolute(filePath) ? filePath : path.resolve(repoRoot, filePath);
 }
 
 function loadStageResponses(filePath, stageLabel) {
   const resolved = resolveDataFile(filePath);
-  if (!fs.existsSync(resolved)) {
+  if (!resolved || !fs.existsSync(resolved)) {
     return [];
   }
 
@@ -229,6 +297,27 @@ const stageResponses = {
   "early work": loadStageResponses(stageFileMap["early work"], "Early Work")
 };
 
+const conversationStore = new Map();
+const MAX_TURNS_PER_SESSION = 2;
+const practicalTopics = new Set([
+  "scholarships",
+  "after 12th options",
+  "internships",
+  "courses & upskilling",
+  "courses and upskilling"
+]);
+const analytics = {
+  totalRequests: 0,
+  successes: 0,
+  failures: 0,
+  rateLimitErrors: 0,
+  totalResponseChars: 0
+};
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function scoreSnippet(snippet, queryTokens) {
   const haystackTokens = tokenize(`${snippet.header} ${snippet.text}`);
   const tokenSet = new Set(haystackTokens);
@@ -248,6 +337,28 @@ function scoreSnippet(snippet, queryTokens) {
   return score;
 }
 
+function shouldUsePeerContext(message, peerSnippets) {
+  const lowered = String(message || "").trim().toLowerCase();
+  const queryTokens = tokenize(message);
+
+  if (!peerSnippets.length) {
+    return false;
+  }
+
+  const simpleEmotionOnly =
+    queryTokens.length <= 4 &&
+    /(sad|lonely|empty|low|tired|down|upset|bad)/.test(lowered) &&
+    !/(because|about|career|future|friends?|family|college|school|work|job|money|compare|pressure)/.test(
+      lowered
+    );
+
+  if (simpleEmotionOnly) {
+    return false;
+  }
+
+  return peerSnippets[0].score >= 6;
+}
+
 function getPeerContext(stage, message) {
   const normalizedStage = normalizeStage(stage);
   const pool =
@@ -261,7 +372,7 @@ function getPeerContext(stage, message) {
     ] ||
     [];
 
-  const queryTokens = tokenize(`${stage} ${message}`);
+  const queryTokens = tokenize(message);
   const ranked = pool
     .map((snippet) => ({ ...snippet, score: scoreSnippet(snippet, queryTokens) }))
     .filter((snippet) => snippet.score > 0)
@@ -271,56 +382,253 @@ function getPeerContext(stage, message) {
   const seenTexts = new Set();
 
   for (const snippet of ranked) {
-    if (selected.length === 3) break;
+    if (selected.length === 2) break;
     if (seenTexts.has(snippet.text)) continue;
     seenTexts.add(snippet.text);
     selected.push(snippet);
   }
 
-  return selected;
+  return shouldUsePeerContext(message, selected) ? selected : [];
 }
 
-function buildGeminiPrompt({ message, stage, userId, sessionId, source, peerSnippets }) {
-  const mode = classifyMessage(message);
+function getSessionKey({ req, source, sessionId, userId, stage, topic }) {
+  if (typeof sessionId === "string" && sessionId.trim()) {
+    return `session:${sessionId.trim().slice(0, 120)}`;
+  }
+
+  if (typeof userId === "string" && userId.trim()) {
+    return `user:${userId.trim().slice(0, 120)}`;
+  }
+
+  const ip = String(req.ip || req.headers["x-forwarded-for"] || "anon")
+    .split(",")[0]
+    .trim();
+  const normalizedStage = normalizeStage(stage || "unknown");
+  const normalizedTopic = normalizeStage(topic || "general");
+  return `fallback:${source || "app"}:${ip}:${normalizedStage}:${normalizedTopic}`;
+}
+
+function getConversationHistory(sessionKey) {
+  return conversationStore.get(sessionKey) || [];
+}
+
+function storeConversationTurn(sessionKey, role, text) {
+  const history = conversationStore.get(sessionKey) || [];
+  history.push({ role, text: String(text || "").trim() });
+  conversationStore.set(sessionKey, history.slice(-MAX_TURNS_PER_SESSION));
+}
+
+function isPracticalTopic(topic) {
+  return practicalTopics.has(normalizeStage(topic));
+}
+
+function getEffectivePeerSnippets(topic, peerSnippets) {
+  if (!peerSnippets.length) {
+    return [];
+  }
+
+  return isPracticalTopic(topic) ? peerSnippets.slice(0, 1) : peerSnippets.slice(0, 2);
+}
+
+function buildReflectivePrompt({ message, stage, topic, peerSnippets, history, language }) {
   const parts = [
-    `mode: ${mode}`,
-    `source: ${source}`,
+    "mode: reflective",
     `stage: ${stage || "unspecified"}`,
-    `userId: ${typeof userId === "string" ? userId.slice(0, 100) : "anonymous"}`,
-    `sessionId: ${typeof sessionId === "string" ? sessionId.slice(0, 100) : "default"}`,
+    `topic: ${topic || "general"}`,
+    `language: ${language}`,
     "",
-    "User message:",
+    "User message",
     message.trim()
   ];
 
+  if (history.length) {
+    parts.push("", "Recent context");
+    for (const item of history) {
+      parts.push(`${item.role}: ${item.text}`);
+    }
+  }
+
   if (peerSnippets.length) {
-    parts.push("", "Relevant anonymized peer excerpts:");
+    parts.push("", "Relevant anonymized Maitri reflections");
     for (const [index, snippet] of peerSnippets.entries()) {
       parts.push(`${index + 1}. (${snippet.stage}) ${snippet.text}`);
     }
-    parts.push(
-      "",
-      "Use these only if they genuinely help.",
-      "If relevant, you may introduce them naturally as: 'Some of your peers and seniors from the Maitri community have shared things like...'",
-      "Do not mention datasets, surveys, spreadsheets, forms, or hidden sources.",
-      "Do not dump multiple excerpts. Use 1 or 2 at most.",
-      "Do not just mirror the user's concern back to them.",
-      "Include at least one concrete next step, practical suggestion, structured option, or focused question that helps the user move forward."
-    );
   }
 
   parts.push(
     "",
-    "Response style requirements:",
-    "- For a real concern: acknowledge briefly, reflect the feeling, then offer something useful.",
-    "- Avoid sounding like a summary bot.",
-    "- Do not over-explain the emotional state if the user already stated it.",
-    "- If the user seems overwhelmed, keep it simpler and offer one small step.",
-    "- If the user is choosing between paths, structure the response into 2 or 3 ways to think about it.",
-    "- End with either a concrete next step or one focused question, not both if the reply is already long."
+    "Reply requirements",
+    `- ${getLanguageInstruction(language)}`,
+    "- Acknowledge briefly, reflect the feeling, then offer something useful.",
+    "- Keep it warm, human, and concise.",
+    "- If helpful, add one subtle peer-grounded line.",
+    "- Offer one small next step or one focused question, not both unless very short.",
+    "- Finish cleanly. Do not end mid-sentence."
   );
 
   return parts.join("\n");
+}
+
+function buildPracticalPrompt({ message, stage, topic, peerSnippets, history, language }) {
+  const parts = [
+    "mode: practical",
+    `stage: ${stage || "unspecified"}`,
+    `topic: ${topic || "general"}`,
+    `language: ${language}`,
+    "",
+    "User question",
+    message.trim()
+  ];
+
+  if (history.length) {
+    parts.push("", "Minimal context");
+    for (const item of history) {
+      parts.push(`${item.role}: ${item.text}`);
+    }
+  }
+
+  if (peerSnippets.length) {
+    parts.push("", "One relevant Maitri reflection");
+    parts.push(`1. (${peerSnippets[0].stage}) ${peerSnippets[0].text}`);
+  }
+
+  parts.push(
+    "",
+    "Reply requirements",
+    `- ${getLanguageInstruction(language)}`,
+    "- Stay anchored to the selected topic.",
+    "- Be practical, direct, and mobile-friendly.",
+    "- Use a short intro, then 2 or 3 compact bullets or options if useful.",
+    "- If the user sounds emotional, validate briefly before the practical guidance.",
+    "- Prefer criteria, next steps, and shortlists over long explanations.",
+    "- Finish cleanly. Do not end mid-sentence."
+  );
+
+  return parts.join("\n");
+}
+
+function buildGeminiPrompt({ message, stage, topic, peerSnippets, history, language }) {
+  return isPracticalTopic(topic)
+    ? buildPracticalPrompt({ message, stage, topic, peerSnippets, history, language })
+    : buildReflectivePrompt({ message, stage, topic, peerSnippets, history, language });
+}
+
+function getResponseTokenLimit(topic) {
+  return isPracticalTopic(topic) ? Math.min(maxOutputTokens, 850) : maxOutputTokens;
+}
+
+async function generateGeminiText({ prompt, tokenLimit }) {
+  const response = await gemini.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      systemInstruction: systemPrompt,
+      maxOutputTokens: tokenLimit
+    }
+  });
+
+  return response.text?.trim() || "No response text returned.";
+}
+
+async function repairIncompleteResponse({ text, language, topic }) {
+  const repairPrompt = [
+    `language: ${language}`,
+    `topic: ${topic || "general"}`,
+    "",
+    "The following draft reply got cut off.",
+    "Rewrite it as one complete reply in the same language and same tone.",
+    "Keep the meaning, do not add major new ideas, and end cleanly.",
+    "Keep it concise and mobile-friendly.",
+    "",
+    "Draft reply",
+    text
+  ].join("\n");
+
+  return generateGeminiText({
+    prompt: repairPrompt,
+    tokenLimit: Math.min(getResponseTokenLimit(topic), 500)
+  });
+}
+
+async function generateSakhiReply({ message, stage, topic, language, peerSnippets, history }) {
+  const prompt = buildGeminiPrompt({
+    message,
+    stage,
+    topic,
+    language,
+    peerSnippets,
+    history
+  });
+  const tokenLimit = getResponseTokenLimit(topic);
+
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      let text = await generateGeminiText({ prompt, tokenLimit });
+
+      if (looksIncompleteResponse(text)) {
+        try {
+          const repaired = await repairIncompleteResponse({ text, language, topic });
+          if (repaired && !looksIncompleteResponse(repaired)) {
+            text = repaired;
+          }
+        } catch (repairError) {
+          console.log(
+            JSON.stringify({
+              type: "sakhi_repair",
+              outcome: "failed",
+              topic: topic || "general",
+              error: String(repairError?.message || repairError).slice(0, 200)
+            })
+          );
+        }
+      }
+
+      return text;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableModelError(error) || attempt === 1) {
+        throw error;
+      }
+      await wait(600 * (attempt + 1));
+    }
+  }
+
+  throw lastError;
+}
+
+function recordSuccess(topic, responseText) {
+  analytics.totalRequests += 1;
+  analytics.successes += 1;
+  analytics.totalResponseChars += String(responseText || "").length;
+  console.log(
+    JSON.stringify({
+      type: "sakhi_analytics",
+      outcome: "success",
+      topic: topic || "general",
+      averageResponseChars: analytics.successes
+        ? Math.round(analytics.totalResponseChars / analytics.successes)
+        : 0
+    })
+  );
+}
+
+function recordFailure(topic, error) {
+  analytics.totalRequests += 1;
+  analytics.failures += 1;
+  const message = String(error?.message || error || "");
+  if (message.includes("429") || /rate|quota|too many/i.test(message)) {
+    analytics.rateLimitErrors += 1;
+  }
+  console.log(
+    JSON.stringify({
+      type: "sakhi_analytics",
+      outcome: "failure",
+      topic: topic || "general",
+      rateLimitErrors: analytics.rateLimitErrors,
+      error: message.slice(0, 300)
+    })
+  );
 }
 
 app.use(
@@ -329,7 +637,8 @@ app.use(
   })
 );
 app.use(express.json({ limit: "1mb" }));
-app.use(express.static("public"));
+app.use(express.text({ type: "*/*", limit: "64kb" }));
+app.use(express.static(publicDir));
 
 function requireConfiguredApiKey(_req, res, next) {
   if (!process.env.GEMINI_API_KEY) {
@@ -359,7 +668,16 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     model,
-    protected: Boolean(sharedAccessToken)
+    protected: Boolean(sharedAccessToken),
+    analytics: {
+      totalRequests: analytics.totalRequests,
+      successes: analytics.successes,
+      failures: analytics.failures,
+      rateLimitErrors: analytics.rateLimitErrors,
+      averageResponseChars: analytics.successes
+        ? Math.round(analytics.totalResponseChars / analytics.successes)
+        : 0
+    }
   });
 });
 
@@ -378,7 +696,10 @@ app.get(
   async (req, res) => {
     const message = typeof req.query?.message === "string" ? req.query.message : "";
     const stage = typeof req.query?.stage === "string" ? req.query.stage : "";
+    const topic = typeof req.query?.topic === "string" ? req.query.topic : "";
     const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
+    const sessionId = typeof req.query?.sessionId === "string" ? req.query.sessionId : "";
+    const userId = typeof req.query?.userId === "string" ? req.query.userId : "";
 
     if (!message.trim()) {
       res.status(400).type("text/plain").send("message must be a non-empty string.");
@@ -387,35 +708,119 @@ app.get(
 
     try {
       const mode = classifyMessage(message);
-      if (mode === "casual") {
-        res.type("text/plain").send(getCasualReply(message));
+      const language = detectLanguage(message);
+      const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
+
+      if (isHighRiskMessage(message)) {
+        const reply = getSafetyReply(language);
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+        recordSuccess(topic, reply);
+        res.type("text/plain").send(reply);
         return;
       }
 
-      const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
-      const response = await gemini.models.generateContent({
-        model,
-        contents: buildGeminiPrompt({
-          message,
-          stage,
-          source,
-          peerSnippets
-        }),
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
+      if (mode === "casual") {
+        const reply = getCasualReply(message);
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+        recordSuccess(topic, reply);
+        res.type("text/plain").send(reply);
+        return;
+      }
 
-      const text = response.text?.trim() || "No response text returned.";
+      const history = getConversationHistory(sessionKey);
+      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+      const text = await generateSakhiReply({
+        message,
+        stage,
+        topic,
+        language,
+        peerSnippets,
+        history
+      });
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", text);
+      recordSuccess(topic, text);
       res.type("text/plain").send(text);
     } catch (error) {
-      res.status(500).type("text/plain").send(error?.message || "Gemini request failed.");
+      recordFailure(topic, error);
+      res.status(503).type("text/plain").send(getTemporaryFailureReply(detectLanguage(message)));
+    }
+  }
+);
+
+app.post(
+  "/api/chat-text",
+  requireConfiguredApiKey,
+  (req, res, next) => {
+    const token = req.query?.token || req.header("x-app-token");
+    if (!sharedAccessToken || token !== sharedAccessToken) {
+      res.status(401).type("text/plain").send("Unauthorized.");
+      return;
+    }
+
+    next();
+  },
+  async (req, res) => {
+    const message = typeof req.body === "string" ? req.body : "";
+    const stage = typeof req.query?.stage === "string" ? req.query.stage : "";
+    const topic = typeof req.query?.topic === "string" ? req.query.topic : "";
+    const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
+    const sessionId = typeof req.query?.sessionId === "string" ? req.query.sessionId : "";
+    const userId = typeof req.query?.userId === "string" ? req.query.userId : "";
+
+    if (!message.trim()) {
+      res.status(400).type("text/plain").send("message must be a non-empty string.");
+      return;
+    }
+
+    try {
+      const mode = classifyMessage(message);
+      const language = detectLanguage(message);
+      const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
+
+      if (isHighRiskMessage(message)) {
+        const reply = getSafetyReply(language);
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+        recordSuccess(topic, reply);
+        res.type("text/plain").send(reply);
+        return;
+      }
+
+      if (mode === "casual") {
+        const reply = getCasualReply(message);
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+        recordSuccess(topic, reply);
+        res.type("text/plain").send(reply);
+        return;
+      }
+
+      const history = getConversationHistory(sessionKey);
+      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+      const text = await generateSakhiReply({
+        message,
+        stage,
+        topic,
+        language,
+        peerSnippets,
+        history
+      });
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", text);
+      recordSuccess(topic, text);
+      res.type("text/plain").send(text);
+    } catch (error) {
+      recordFailure(topic, error);
+      res.status(503).type("text/plain").send(getTemporaryFailureReply(detectLanguage(message)));
     }
   }
 );
 
 app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res) => {
-  const { message, userId, sessionId, stage } = req.body ?? {};
+  const { message, userId, sessionId, stage, topic } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message must be a non-empty string." });
@@ -424,9 +829,38 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
 
   try {
     const mode = classifyMessage(message);
-    if (mode === "casual") {
+    const language = detectLanguage(message);
+    const sessionKey = getSessionKey({
+      req,
+      source: "mit-app-inventor-ai2a",
+      sessionId,
+      userId,
+      stage,
+      topic
+    });
+
+    if (isHighRiskMessage(message)) {
+      const reply = getSafetyReply(language);
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", reply);
+      recordSuccess(topic, reply);
       res.json({
-        reply: getCasualReply(message),
+        reply,
+        model,
+        mode: "safety",
+        peerContextCount: 0,
+        topic
+      });
+      return;
+    }
+
+    if (mode === "casual") {
+      const reply = getCasualReply(message);
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", reply);
+      recordSuccess(topic, reply);
+      res.json({
+        reply,
         model,
         mode,
         peerContextCount: 0
@@ -434,33 +868,31 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       return;
     }
 
-    const peerSnippets = mode === "reflective" ? getPeerContext(stage, message) : [];
-    const response = await gemini.models.generateContent({
-      model,
-      contents: buildGeminiPrompt({
-        message,
-        userId,
-        sessionId,
-        stage,
-        source: "mit-app-inventor-ai2a",
-        peerSnippets
-      }),
-      config: {
-        systemInstruction: systemPrompt
-      }
+    const history = getConversationHistory(sessionKey);
+    const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+    const text = await generateSakhiReply({
+      message,
+      stage,
+      topic,
+      language,
+      peerSnippets,
+      history
     });
-
-    const text = response.text?.trim() || "No response text returned.";
+    storeConversationTurn(sessionKey, "user", message);
+    storeConversationTurn(sessionKey, "sakhi", text);
+    recordSuccess(topic, text);
 
     res.json({
       reply: text,
       model,
       mode,
-      peerContextCount: peerSnippets.length
+      peerContextCount: peerSnippets.length,
+      topic
     });
   } catch (error) {
-    res.status(500).json({
-      error: error?.message || "Gemini request failed."
+    recordFailure(topic, error);
+    res.status(503).json({
+      error: getTemporaryFailureReply(detectLanguage(message))
     });
   }
 });
