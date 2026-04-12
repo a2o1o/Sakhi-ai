@@ -39,6 +39,14 @@
       </block>
     </value>
   </block>
+  <block type="global_declaration" id="concern-global-anon-user" x="80" y="-560">
+    <field name="NAME">anonymousUserId</field>
+    <value name="VALUE">
+      <block type="text" id="concern-anon-user-empty">
+        <field name="TEXT"></field>
+      </block>
+    </value>
+  </block>
 
   <block type="component_event" id="concern-init" x="-980" y="-420">
     <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Form" is_generic="false" instance_name="ConcernScreen" event_name="Initialize"></mutation>
@@ -82,35 +90,158 @@
               </block>
             </value>
             <next>
-              <block type="component_set_get" id="concern-show-stage">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StageValueLabel"></mutation>
-                <field name="COMPONENT_SELECTOR">StageValueLabel</field>
-                <field name="PROP">Text</field>
+              <block type="lexical_variable_set" id="concern-set-anon-user">
+                <field name="VAR">global anonymousUserId</field>
                 <value name="VALUE">
-                  <block type="lexical_variable_get" id="concern-stage-read">
-                    <field name="VAR">global stage</field>
+                  <block type="component_method" id="concern-get-anon-user">
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TinyDB" method_name="GetValue" is_generic="false" instance_name="TinyDB1"></mutation>
+                    <field name="COMPONENT_SELECTOR">TinyDB1</field>
+                    <value name="ARG0">
+                      <block type="text" id="concern-anon-user-key">
+                        <field name="TEXT">anonymousUserId</field>
+                      </block>
+                    </value>
+                    <value name="ARG1">
+                      <block type="text" id="concern-anon-user-default">
+                        <field name="TEXT"></field>
+                      </block>
+                    </value>
                   </block>
                 </value>
                 <next>
-                  <block type="component_set_get" id="concern-show-topic">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="TopicValueLabel"></mutation>
-                    <field name="COMPONENT_SELECTOR">TopicValueLabel</field>
-                    <field name="PROP">Text</field>
-                    <value name="VALUE">
-                      <block type="lexical_variable_get" id="concern-topic-read">
-                        <field name="VAR">global topic</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="component_set_get" id="concern-show-empty-chat">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
-                        <field name="COMPONENT_SELECTOR">ReplyLabel</field>
-                        <field name="PROP">Text</field>
-                        <value name="VALUE">
-                          <block type="text" id="concern-empty-chat-text">
-                            <field name="TEXT">No messages yet. Start the conversation below.</field>
+                  <block type="controls_if" id="concern-create-anon-user-if">
+                    <value name="IF0">
+                      <block type="logic_compare" id="concern-anon-user-empty-check">
+                        <field name="OP">EQ</field>
+                        <value name="A">
+                          <block type="lexical_variable_get" id="concern-anon-user-read-init">
+                            <field name="VAR">global anonymousUserId</field>
                           </block>
                         </value>
+                        <value name="B">
+                          <block type="text" id="concern-anon-user-empty-text">
+                            <field name="TEXT"></field>
+                          </block>
+                        </value>
+                      </block>
+                    </value>
+                    <statement name="DO0">
+                      <block type="lexical_variable_set" id="concern-generate-anon-user">
+                        <field name="VAR">global anonymousUserId</field>
+                        <value name="VALUE">
+                          <block type="text_join" id="concern-generate-anon-user-join">
+                            <mutation items="6"></mutation>
+                            <value name="ADD0">
+                              <block type="text" id="concern-generate-anon-user-prefix">
+                                <field name="TEXT">sakhi-</field>
+                              </block>
+                            </value>
+                            <value name="ADD1">
+                              <block type="math_random_int" id="concern-generate-anon-user-rand1">
+                                <value name="FROM">
+                                  <block type="math_number" id="concern-generate-anon-user-rand1-from">
+                                    <field name="NUM">100000</field>
+                                  </block>
+                                </value>
+                                <value name="TO">
+                                  <block type="math_number" id="concern-generate-anon-user-rand1-to">
+                                    <field name="NUM">999999</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <value name="ADD2">
+                              <block type="text" id="concern-generate-anon-user-mid1">
+                                <field name="TEXT">-</field>
+                              </block>
+                            </value>
+                            <value name="ADD3">
+                              <block type="math_random_int" id="concern-generate-anon-user-rand2">
+                                <value name="FROM">
+                                  <block type="math_number" id="concern-generate-anon-user-rand2-from">
+                                    <field name="NUM">100000</field>
+                                  </block>
+                                </value>
+                                <value name="TO">
+                                  <block type="math_number" id="concern-generate-anon-user-rand2-to">
+                                    <field name="NUM">999999</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                            <value name="ADD4">
+                              <block type="text" id="concern-generate-anon-user-mid2">
+                                <field name="TEXT">-</field>
+                              </block>
+                            </value>
+                            <value name="ADD5">
+                              <block type="math_random_int" id="concern-generate-anon-user-rand3">
+                                <value name="FROM">
+                                  <block type="math_number" id="concern-generate-anon-user-rand3-from">
+                                    <field name="NUM">100000</field>
+                                  </block>
+                                </value>
+                                <value name="TO">
+                                  <block type="math_number" id="concern-generate-anon-user-rand3-to">
+                                    <field name="NUM">999999</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="component_method" id="concern-store-anon-user">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="TinyDB" method_name="StoreValue" is_generic="false" instance_name="TinyDB1"></mutation>
+                            <field name="COMPONENT_SELECTOR">TinyDB1</field>
+                            <value name="ARG0">
+                              <block type="text" id="concern-store-anon-user-key">
+                                <field name="TEXT">anonymousUserId</field>
+                              </block>
+                            </value>
+                            <value name="ARG1">
+                              <block type="lexical_variable_get" id="concern-store-anon-user-value">
+                                <field name="VAR">global anonymousUserId</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </statement>
+                    <next>
+                      <block type="component_set_get" id="concern-show-stage">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="StageValueLabel"></mutation>
+                        <field name="COMPONENT_SELECTOR">StageValueLabel</field>
+                        <field name="PROP">Text</field>
+                        <value name="VALUE">
+                          <block type="lexical_variable_get" id="concern-stage-read">
+                            <field name="VAR">global stage</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="component_set_get" id="concern-show-topic">
+                            <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="TopicValueLabel"></mutation>
+                            <field name="COMPONENT_SELECTOR">TopicValueLabel</field>
+                            <field name="PROP">Text</field>
+                            <value name="VALUE">
+                              <block type="lexical_variable_get" id="concern-topic-read">
+                                <field name="VAR">global topic</field>
+                              </block>
+                            </value>
+                            <next>
+                              <block type="component_set_get" id="concern-show-empty-chat">
+                                <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Label" set_or_get="set" property_name="Text" is_generic="false" instance_name="ReplyLabel"></mutation>
+                                <field name="COMPONENT_SELECTOR">ReplyLabel</field>
+                                <field name="PROP">Text</field>
+                                <value name="VALUE">
+                                  <block type="text" id="concern-empty-chat-text">
+                                    <field name="TEXT">No messages yet. Start the conversation below.</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
                       </block>
                     </next>
                   </block>
@@ -265,7 +396,7 @@
                             <field name="PROP">Url</field>
                             <value name="VALUE">
                               <block type="text_join" id="concern-url-join">
-                                <mutation items="7"></mutation>
+                                <mutation items="9"></mutation>
                                 <value name="ADD0">
                                   <block type="lexical_variable_get" id="concern-backend-read">
                                     <field name="VAR">global backendUrl</field>
@@ -315,6 +446,22 @@
                                   </block>
                                 </value>
                                 <value name="ADD6">
+                                  <block type="text" id="concern-url-userid-prefix">
+                                    <field name="TEXT">&amp;userId=</field>
+                                  </block>
+                                </value>
+                                <value name="ADD7">
+                                  <block type="component_method" id="concern-encode-anon-user">
+                                    <mutation xmlns="http://www.w3.org/1999/xhtml" component_type="Web" method_name="UriEncode" is_generic="false" instance_name="SakhiWeb"></mutation>
+                                    <field name="COMPONENT_SELECTOR">SakhiWeb</field>
+                                    <value name="ARG0">
+                                      <block type="lexical_variable_get" id="concern-anon-user-read-send">
+                                        <field name="VAR">global anonymousUserId</field>
+                                      </block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <value name="ADD8">
                                   <block type="text" id="concern-url-tail">
                                     <field name="TEXT">&amp;source=appinventor</field>
                                   </block>

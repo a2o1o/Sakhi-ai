@@ -301,7 +301,10 @@ const stageResponses = {
   "early work": loadStageResponses(stageFileMap["early work"], "Early Work")
 };
 
-const conversationStore = new Map();
+const memoryStoreFile =
+  process.env.MEMORY_STORE_FILE || path.join(repoRoot, "data", "sakhi-memory.json");
+const memoryRetentionMs =
+  Number(process.env.MEMORY_RETENTION_DAYS || 30) * 24 * 60 * 60 * 1000;
 const MAX_TURNS_PER_SESSION = 2;
 const practicalTopics = new Set([
   "scholarships",
@@ -329,7 +332,9 @@ const analytics = {
   recentErrors: [],
   recentTruncations: []
 };
+const conversationStore = loadPersistentConversationStore();
 const sessionStats = new Map();
+let persistMemoryTimer = null;
 
 function bumpCounter(bucket, key) {
   const safeKey = key || "general";
@@ -341,6 +346,113 @@ function pushRecent(list, item, limit = 10) {
   if (list.length > limit) {
     list.length = limit;
   }
+}
+
+function normalizeConversationEntry(value) {
+  const history = Array.isArray(value?.history)
+    ? value.history
+    : Array.isArray(value)
+      ? value
+      : [];
+  const sanitizedHistory = history
+    .map((item) => ({
+      role: String(item?.role || "").trim(),
+      text: String(item?.text || "").trim()
+    }))
+    .filter((item) => item.role && item.text)
+    .slice(-MAX_TURNS_PER_SESSION);
+
+  return {
+    history: sanitizedHistory,
+    updatedAt: typeof value?.updatedAt === "string" ? value.updatedAt : new Date().toISOString()
+  };
+}
+
+function isExpiredTimestamp(timestamp) {
+  const time = new Date(timestamp).getTime();
+  if (!Number.isFinite(time)) {
+    return true;
+  }
+  return Date.now() - time > memoryRetentionMs;
+}
+
+function loadPersistentConversationStore() {
+  try {
+    if (!fs.existsSync(memoryStoreFile)) {
+      return new Map();
+    }
+
+    const raw = JSON.parse(fs.readFileSync(memoryStoreFile, "utf8"));
+    const entries = Object.entries(raw || {});
+    const map = new Map();
+
+    for (const [key, value] of entries) {
+      const normalized = normalizeConversationEntry(value);
+      if (normalized.history.length && !isExpiredTimestamp(normalized.updatedAt)) {
+        map.set(key, normalized);
+      }
+    }
+
+    return map;
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        type: "sakhi_memory_load",
+        outcome: "failed",
+        error: String(error?.message || error).slice(0, 200)
+      })
+    );
+    return new Map();
+  }
+}
+
+function serializeConversationStore() {
+  const output = {};
+  for (const [key, value] of conversationStore.entries()) {
+    output[key] = {
+      history: value.history,
+      updatedAt: value.updatedAt
+    };
+  }
+  return output;
+}
+
+function pruneConversationStore() {
+  let changed = false;
+  for (const [key, value] of conversationStore.entries()) {
+    if (isExpiredTimestamp(value?.updatedAt)) {
+      conversationStore.delete(key);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function persistConversationStore() {
+  persistMemoryTimer = null;
+  try {
+    const pruned = pruneConversationStore();
+    fs.mkdirSync(path.dirname(memoryStoreFile), { recursive: true });
+    fs.writeFileSync(memoryStoreFile, JSON.stringify(serializeConversationStore(), null, 2), "utf8");
+    if (pruned) {
+      console.log(JSON.stringify({ type: "sakhi_memory_prune", outcome: "success" }));
+    }
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        type: "sakhi_memory_persist",
+        outcome: "failed",
+        error: String(error?.message || error).slice(0, 200)
+      })
+    );
+  }
+}
+
+function schedulePersistConversationStore() {
+  if (persistMemoryTimer) {
+    clearTimeout(persistMemoryTimer);
+  }
+  persistMemoryTimer = setTimeout(persistConversationStore, 400);
 }
 
 function recordSessionActivity(sessionKey) {
@@ -437,12 +549,12 @@ function getPeerContext(stage, message) {
 }
 
 function getSessionKey({ req, source, sessionId, userId, stage, topic }) {
-  if (typeof sessionId === "string" && sessionId.trim()) {
-    return `session:${sessionId.trim().slice(0, 120)}`;
-  }
-
   if (typeof userId === "string" && userId.trim()) {
     return `user:${userId.trim().slice(0, 120)}`;
+  }
+
+  if (typeof sessionId === "string" && sessionId.trim()) {
+    return `session:${sessionId.trim().slice(0, 120)}`;
   }
 
   const ip = String(req.ip || req.headers["x-forwarded-for"] || "anon")
@@ -454,13 +566,31 @@ function getSessionKey({ req, source, sessionId, userId, stage, topic }) {
 }
 
 function getConversationHistory(sessionKey) {
-  return conversationStore.get(sessionKey) || [];
+  const entry = conversationStore.get(sessionKey);
+  if (!entry) {
+    return [];
+  }
+
+  if (isExpiredTimestamp(entry.updatedAt)) {
+    conversationStore.delete(sessionKey);
+    schedulePersistConversationStore();
+    return [];
+  }
+
+  return Array.isArray(entry.history) ? entry.history : [];
 }
 
 function storeConversationTurn(sessionKey, role, text) {
-  const history = conversationStore.get(sessionKey) || [];
-  history.push({ role, text: String(text || "").trim() });
-  conversationStore.set(sessionKey, history.slice(-MAX_TURNS_PER_SESSION));
+  if (!sessionKey) {
+    return;
+  }
+
+  const existing = normalizeConversationEntry(conversationStore.get(sessionKey));
+  existing.history.push({ role, text: String(text || "").trim() });
+  existing.history = existing.history.slice(-MAX_TURNS_PER_SESSION);
+  existing.updatedAt = new Date().toISOString();
+  conversationStore.set(sessionKey, existing);
+  schedulePersistConversationStore();
 }
 
 function isPracticalTopic(topic) {
@@ -1214,4 +1344,14 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
+});
+
+process.on("SIGTERM", () => {
+  persistConversationStore();
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  persistConversationStore();
+  process.exit(0);
 });
