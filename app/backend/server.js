@@ -223,6 +223,10 @@ function looksIncompleteResponse(text) {
   return /[a-z0-9\u0900-\u097F]$/i.test(trimmed);
 }
 
+function looksTooLongForMobile(text) {
+  return String(text || "").trim().length > 650;
+}
+
 function getCasualReply(message) {
   const lowered = String(message || "").trim().toLowerCase();
 
@@ -311,7 +315,8 @@ const analytics = {
   successes: 0,
   failures: 0,
   rateLimitErrors: 0,
-  totalResponseChars: 0
+  totalResponseChars: 0,
+  truncatedResponses: 0
 };
 
 function wait(ms) {
@@ -514,7 +519,7 @@ function buildGeminiPrompt({ message, stage, topic, peerSnippets, history, langu
 }
 
 function getResponseTokenLimit(topic) {
-  return isPracticalTopic(topic) ? Math.min(maxOutputTokens, 850) : maxOutputTokens;
+  return isPracticalTopic(topic) ? Math.min(maxOutputTokens, 500) : Math.min(maxOutputTokens, 900);
 }
 
 async function generateGeminiText({ prompt, tokenLimit }) {
@@ -527,10 +532,34 @@ async function generateGeminiText({ prompt, tokenLimit }) {
     }
   });
 
-  return response.text?.trim() || "No response text returned.";
+  const parts = response?.candidates?.[0]?.content?.parts || [];
+  const text =
+    (typeof response?.text === "string" && response.text.trim()) ||
+    parts
+      .map((part) => (typeof part?.text === "string" ? part.text : ""))
+      .join("")
+      .trim() ||
+    "No response text returned.";
+
+  return {
+    text,
+    finishReason: String(response?.candidates?.[0]?.finishReason || "").toUpperCase()
+  };
 }
 
-async function repairIncompleteResponse({ text, language, topic }) {
+function isIncompleteGeneration(result) {
+  if (!result?.text) {
+    return true;
+  }
+
+  if (!result.finishReason || result.finishReason === "STOP") {
+    return looksIncompleteResponse(result.text);
+  }
+
+  return true;
+}
+
+async function repairIncompleteResponse({ text, language, topic, shortMode = false }) {
   const repairPrompt = [
     `language: ${language}`,
     `topic: ${topic || "general"}`,
@@ -538,7 +567,9 @@ async function repairIncompleteResponse({ text, language, topic }) {
     "The following draft reply got cut off.",
     "Rewrite it as one complete reply in the same language and same tone.",
     "Keep the meaning, do not add major new ideas, and end cleanly.",
-    "Keep it concise and mobile-friendly.",
+    shortMode
+      ? "Keep it very short and mobile-friendly. Use at most 3 short sentences or 2 short bullets."
+      : "Keep it concise and mobile-friendly.",
     "",
     "Draft reply",
     text
@@ -546,7 +577,27 @@ async function repairIncompleteResponse({ text, language, topic }) {
 
   return generateGeminiText({
     prompt: repairPrompt,
-    tokenLimit: Math.min(getResponseTokenLimit(topic), 500)
+    tokenLimit: shortMode ? 220 : Math.min(getResponseTokenLimit(topic), 360)
+  });
+}
+
+async function rewriteForMobile({ text, language, topic }) {
+  const prompt = [
+    `language: ${language}`,
+    `topic: ${topic || "general"}`,
+    "",
+    "Rewrite the reply below so it is easier to read on a phone.",
+    "Keep the same meaning.",
+    "Use at most 3 short sentences or 2 short bullets.",
+    "End cleanly.",
+    "",
+    "Reply",
+    text
+  ].join("\n");
+
+  return generateGeminiText({
+    prompt,
+    tokenLimit: 220
   });
 }
 
@@ -564,13 +615,33 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      let text = await generateGeminiText({ prompt, tokenLimit });
+      let result = await generateGeminiText({ prompt, tokenLimit });
 
-      if (looksIncompleteResponse(text)) {
+      if (isIncompleteGeneration(result)) {
+        analytics.truncatedResponses += 1;
+        console.log(
+          JSON.stringify({
+            type: "sakhi_truncation",
+            topic: topic || "general",
+            finishReason: result.finishReason || "UNKNOWN",
+            preview: String(result.text || "").slice(0, 160)
+          })
+        );
         try {
-          const repaired = await repairIncompleteResponse({ text, language, topic });
-          if (repaired && !looksIncompleteResponse(repaired)) {
-            text = repaired;
+          result = await repairIncompleteResponse({
+            text: result.text,
+            language,
+            topic,
+            shortMode: isPracticalTopic(topic)
+          });
+
+          if (isIncompleteGeneration(result)) {
+            result = await repairIncompleteResponse({
+              text: result.text,
+              language,
+              topic,
+              shortMode: true
+            });
           }
         } catch (repairError) {
           console.log(
@@ -584,7 +655,33 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
         }
       }
 
-      return text;
+      if (isIncompleteGeneration(result)) {
+        throw new Error("Generated response remained incomplete after repair.");
+      }
+
+      if (looksTooLongForMobile(result.text)) {
+        try {
+          const shortened = await rewriteForMobile({
+            text: result.text,
+            language,
+            topic
+          });
+          if (!isIncompleteGeneration(shortened)) {
+            result = shortened;
+          }
+        } catch (rewriteError) {
+          console.log(
+            JSON.stringify({
+              type: "sakhi_mobile_rewrite",
+              outcome: "failed",
+              topic: topic || "general",
+              error: String(rewriteError?.message || rewriteError).slice(0, 200)
+            })
+          );
+        }
+      }
+
+      return result.text;
     } catch (error) {
       lastError = error;
       if (!isRetryableModelError(error) || attempt === 1) {
@@ -674,6 +771,7 @@ app.get("/api/health", (_req, res) => {
       successes: analytics.successes,
       failures: analytics.failures,
       rateLimitErrors: analytics.rateLimitErrors,
+      truncatedResponses: analytics.truncatedResponses,
       averageResponseChars: analytics.successes
         ? Math.round(analytics.totalResponseChars / analytics.successes)
         : 0
