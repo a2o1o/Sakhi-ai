@@ -316,8 +316,48 @@ const analytics = {
   failures: 0,
   rateLimitErrors: 0,
   totalResponseChars: 0,
-  truncatedResponses: 0
+  truncatedResponses: 0,
+  totalLatencyMs: 0,
+  slowResponses: 0,
+  topics: {},
+  stages: {},
+  modes: {},
+  languages: {},
+  totalSessions: 0,
+  repeatSessions: 0,
+  safetyResponses: 0,
+  recentErrors: [],
+  recentTruncations: []
 };
+const sessionStats = new Map();
+
+function bumpCounter(bucket, key) {
+  const safeKey = key || "general";
+  bucket[safeKey] = (bucket[safeKey] || 0) + 1;
+}
+
+function pushRecent(list, item, limit = 10) {
+  list.unshift(item);
+  if (list.length > limit) {
+    list.length = limit;
+  }
+}
+
+function recordSessionActivity(sessionKey) {
+  if (!sessionKey) {
+    return;
+  }
+
+  const currentCount = sessionStats.get(sessionKey) || 0;
+  const nextCount = currentCount + 1;
+  sessionStats.set(sessionKey, nextCount);
+
+  if (currentCount === 0) {
+    analytics.totalSessions += 1;
+  } else if (currentCount === 1) {
+    analytics.repeatSessions += 1;
+  }
+}
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -528,7 +568,10 @@ async function generateGeminiText({ prompt, tokenLimit }) {
     contents: prompt,
     config: {
       systemInstruction: systemPrompt,
-      maxOutputTokens: tokenLimit
+      maxOutputTokens: tokenLimit,
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
     }
   });
 
@@ -619,6 +662,12 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
 
       if (isIncompleteGeneration(result)) {
         analytics.truncatedResponses += 1;
+        pushRecent(analytics.recentTruncations, {
+          at: new Date().toISOString(),
+          topic: topic || "general",
+          finishReason: result.finishReason || "UNKNOWN",
+          preview: String(result.text || "").slice(0, 160)
+        });
         console.log(
           JSON.stringify({
             type: "sakhi_truncation",
@@ -694,15 +743,31 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
   throw lastError;
 }
 
-function recordSuccess(topic, responseText) {
+function recordSuccess(topic, responseText, meta = {}) {
   analytics.totalRequests += 1;
   analytics.successes += 1;
   analytics.totalResponseChars += String(responseText || "").length;
+  analytics.totalLatencyMs += Number(meta.latencyMs || 0);
+  if (Number(meta.latencyMs || 0) >= 4000) {
+    analytics.slowResponses += 1;
+  }
+  recordSessionActivity(meta.sessionKey);
+  bumpCounter(analytics.topics, topic || "general");
+  bumpCounter(analytics.stages, meta.stage || "unknown");
+  bumpCounter(analytics.modes, meta.mode || "unknown");
+  bumpCounter(analytics.languages, meta.language || "unknown");
+  if (meta.mode === "safety") {
+    analytics.safetyResponses += 1;
+  }
   console.log(
     JSON.stringify({
       type: "sakhi_analytics",
       outcome: "success",
       topic: topic || "general",
+      stage: meta.stage || "unknown",
+      mode: meta.mode || "unknown",
+      language: meta.language || "unknown",
+      latencyMs: Number(meta.latencyMs || 0),
       averageResponseChars: analytics.successes
         ? Math.round(analytics.totalResponseChars / analytics.successes)
         : 0
@@ -710,18 +775,39 @@ function recordSuccess(topic, responseText) {
   );
 }
 
-function recordFailure(topic, error) {
+function recordFailure(topic, error, meta = {}) {
   analytics.totalRequests += 1;
   analytics.failures += 1;
+  analytics.totalLatencyMs += Number(meta.latencyMs || 0);
+  if (Number(meta.latencyMs || 0) >= 4000) {
+    analytics.slowResponses += 1;
+  }
+  recordSessionActivity(meta.sessionKey);
+  bumpCounter(analytics.topics, topic || "general");
+  bumpCounter(analytics.stages, meta.stage || "unknown");
+  bumpCounter(analytics.modes, meta.mode || "unknown");
+  bumpCounter(analytics.languages, meta.language || "unknown");
   const message = String(error?.message || error || "");
   if (message.includes("429") || /rate|quota|too many/i.test(message)) {
     analytics.rateLimitErrors += 1;
   }
+  pushRecent(analytics.recentErrors, {
+    at: new Date().toISOString(),
+    topic: topic || "general",
+    stage: meta.stage || "unknown",
+    mode: meta.mode || "unknown",
+    language: meta.language || "unknown",
+    latencyMs: Number(meta.latencyMs || 0),
+    error: message.slice(0, 180)
+  });
   console.log(
     JSON.stringify({
       type: "sakhi_analytics",
       outcome: "failure",
       topic: topic || "general",
+      mode: meta.mode || "unknown",
+      language: meta.language || "unknown",
+      latencyMs: Number(meta.latencyMs || 0),
       rateLimitErrors: analytics.rateLimitErrors,
       error: message.slice(0, 300)
     })
@@ -736,6 +822,10 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.text({ type: "*/*", limit: "64kb" }));
 app.use(express.static(publicDir));
+
+app.get("/dashboard", (_req, res) => {
+  res.sendFile(path.join(publicDir, "dashboard.html"));
+});
 
 function requireConfiguredApiKey(_req, res, next) {
   if (!process.env.GEMINI_API_KEY) {
@@ -772,10 +862,59 @@ app.get("/api/health", (_req, res) => {
       failures: analytics.failures,
       rateLimitErrors: analytics.rateLimitErrors,
       truncatedResponses: analytics.truncatedResponses,
+      averageLatencyMs: analytics.totalRequests
+        ? Math.round(analytics.totalLatencyMs / analytics.totalRequests)
+        : 0,
+      slowResponses: analytics.slowResponses,
+      totalSessions: analytics.totalSessions,
+      repeatSessions: analytics.repeatSessions,
+      safetyResponses: analytics.safetyResponses,
       averageResponseChars: analytics.successes
         ? Math.round(analytics.totalResponseChars / analytics.successes)
         : 0
     }
+  });
+});
+
+app.get("/api/dashboard-metrics", (_req, res) => {
+  res.json({
+    ok: true,
+    model,
+    protected: Boolean(sharedAccessToken),
+    uptimeSeconds: Math.round(process.uptime()),
+    totals: {
+      totalRequests: analytics.totalRequests,
+      successes: analytics.successes,
+      failures: analytics.failures,
+      successRate:
+        analytics.totalRequests > 0
+          ? Number(((analytics.successes / analytics.totalRequests) * 100).toFixed(1))
+          : 0,
+      rateLimitErrors: analytics.rateLimitErrors,
+      truncatedResponses: analytics.truncatedResponses,
+      averageLatencyMs: analytics.totalRequests
+        ? Math.round(analytics.totalLatencyMs / analytics.totalRequests)
+        : 0,
+      slowResponses: analytics.slowResponses,
+      totalSessions: analytics.totalSessions,
+      repeatSessions: analytics.repeatSessions,
+      repeatSessionRate:
+        analytics.totalSessions > 0
+          ? Number(((analytics.repeatSessions / analytics.totalSessions) * 100).toFixed(1))
+          : 0,
+      safetyResponses: analytics.safetyResponses,
+      averageResponseChars: analytics.successes
+        ? Math.round(analytics.totalResponseChars / analytics.successes)
+        : 0
+    },
+    breakdowns: {
+      topics: analytics.topics,
+      stages: analytics.stages,
+      modes: analytics.modes,
+      languages: analytics.languages
+    },
+    recentErrors: analytics.recentErrors,
+    recentTruncations: analytics.recentTruncations
   });
 });
 
@@ -792,6 +931,7 @@ app.get(
     next();
   },
   async (req, res) => {
+    const startedAt = Date.now();
     const message = typeof req.query?.message === "string" ? req.query.message : "";
     const stage = typeof req.query?.stage === "string" ? req.query.stage : "";
     const topic = typeof req.query?.topic === "string" ? req.query.topic : "";
@@ -813,7 +953,13 @@ app.get(
         const reply = getSafetyReply(language);
         storeConversationTurn(sessionKey, "user", message);
         storeConversationTurn(sessionKey, "sakhi", reply);
-        recordSuccess(topic, reply);
+        recordSuccess(topic, reply, {
+          mode: "safety",
+          language,
+          stage,
+          sessionKey,
+          latencyMs: Date.now() - startedAt
+        });
         res.type("text/plain").send(reply);
         return;
       }
@@ -822,7 +968,13 @@ app.get(
         const reply = getCasualReply(message);
         storeConversationTurn(sessionKey, "user", message);
         storeConversationTurn(sessionKey, "sakhi", reply);
-        recordSuccess(topic, reply);
+        recordSuccess(topic, reply, {
+          mode,
+          language,
+          stage,
+          sessionKey,
+          latencyMs: Date.now() - startedAt
+        });
         res.type("text/plain").send(reply);
         return;
       }
@@ -839,11 +991,24 @@ app.get(
       });
       storeConversationTurn(sessionKey, "user", message);
       storeConversationTurn(sessionKey, "sakhi", text);
-      recordSuccess(topic, text);
+      recordSuccess(topic, text, {
+        mode,
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
       res.type("text/plain").send(text);
     } catch (error) {
-      recordFailure(topic, error);
-      res.status(503).type("text/plain").send(getTemporaryFailureReply(detectLanguage(message)));
+      const language = detectLanguage(message);
+      recordFailure(topic, error, {
+        mode: classifyMessage(message),
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
+      res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
     }
   }
 );
@@ -861,6 +1026,7 @@ app.post(
     next();
   },
   async (req, res) => {
+    const startedAt = Date.now();
     const message = typeof req.body === "string" ? req.body : "";
     const stage = typeof req.query?.stage === "string" ? req.query.stage : "";
     const topic = typeof req.query?.topic === "string" ? req.query.topic : "";
@@ -882,7 +1048,13 @@ app.post(
         const reply = getSafetyReply(language);
         storeConversationTurn(sessionKey, "user", message);
         storeConversationTurn(sessionKey, "sakhi", reply);
-        recordSuccess(topic, reply);
+        recordSuccess(topic, reply, {
+          mode: "safety",
+          language,
+          stage,
+          sessionKey,
+          latencyMs: Date.now() - startedAt
+        });
         res.type("text/plain").send(reply);
         return;
       }
@@ -891,7 +1063,13 @@ app.post(
         const reply = getCasualReply(message);
         storeConversationTurn(sessionKey, "user", message);
         storeConversationTurn(sessionKey, "sakhi", reply);
-        recordSuccess(topic, reply);
+        recordSuccess(topic, reply, {
+          mode,
+          language,
+          stage,
+          sessionKey,
+          latencyMs: Date.now() - startedAt
+        });
         res.type("text/plain").send(reply);
         return;
       }
@@ -908,16 +1086,30 @@ app.post(
       });
       storeConversationTurn(sessionKey, "user", message);
       storeConversationTurn(sessionKey, "sakhi", text);
-      recordSuccess(topic, text);
+      recordSuccess(topic, text, {
+        mode,
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
       res.type("text/plain").send(text);
     } catch (error) {
-      recordFailure(topic, error);
-      res.status(503).type("text/plain").send(getTemporaryFailureReply(detectLanguage(message)));
+      const language = detectLanguage(message);
+      recordFailure(topic, error, {
+        mode: classifyMessage(message),
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
+      res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
     }
   }
 );
 
 app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res) => {
+  const startedAt = Date.now();
   const { message, userId, sessionId, stage, topic } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
@@ -941,7 +1133,13 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       const reply = getSafetyReply(language);
       storeConversationTurn(sessionKey, "user", message);
       storeConversationTurn(sessionKey, "sakhi", reply);
-      recordSuccess(topic, reply);
+      recordSuccess(topic, reply, {
+        mode: "safety",
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
       res.json({
         reply,
         model,
@@ -956,7 +1154,13 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       const reply = getCasualReply(message);
       storeConversationTurn(sessionKey, "user", message);
       storeConversationTurn(sessionKey, "sakhi", reply);
-      recordSuccess(topic, reply);
+      recordSuccess(topic, reply, {
+        mode,
+        language,
+        stage,
+        sessionKey,
+        latencyMs: Date.now() - startedAt
+      });
       res.json({
         reply,
         model,
@@ -978,7 +1182,13 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
     });
     storeConversationTurn(sessionKey, "user", message);
     storeConversationTurn(sessionKey, "sakhi", text);
-    recordSuccess(topic, text);
+    recordSuccess(topic, text, {
+      mode,
+      language,
+      stage,
+      sessionKey,
+      latencyMs: Date.now() - startedAt
+    });
 
     res.json({
       reply: text,
@@ -988,9 +1198,16 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       topic
     });
   } catch (error) {
-    recordFailure(topic, error);
+    const language = detectLanguage(message);
+    recordFailure(topic, error, {
+      mode: classifyMessage(message),
+      language,
+      stage,
+      sessionKey,
+      latencyMs: Date.now() - startedAt
+    });
     res.status(503).json({
-      error: getTemporaryFailureReply(detectLanguage(message))
+      error: getTemporaryFailureReply(language)
     });
   }
 });
