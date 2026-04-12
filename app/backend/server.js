@@ -796,10 +796,10 @@ function buildPracticalPrompt({ message, stage, topic, peerSnippets, history, la
     "- If the user sounds emotional, validate briefly before the practical guidance.",
     "- Prefer criteria, next steps, and shortlists over long explanations.",
     shouldLeadWithMaitriTag(topic)
-      ? "- Begin the response with a Maitri grounding line such as 'Many of your seniors from Maitri have shared...' or 'Many of your seniors from Maitri have felt...' before the rest of the guidance."
+      ? "- Begin the very first sentence with an explicit Maitri grounding line. Use wording like 'Many of your seniors from Maitri have shared...' or 'Many of your seniors from Maitri have felt...' before the rest of the guidance."
       : "- When natural, you may mention Maitri seniors briefly so the user feels less alone.",
     shouldLeadWithMaitriTag(topic)
-      ? "- For scholarships and internships, the Maitri grounding line should appear in the opening sentence, not later."
+      ? "- For scholarships and internships, do not replace the Maitri wording with generic phrases like 'many girls' or 'many people'. It should explicitly mention Maitri seniors in the opening sentence."
       : "- Keep any Maitri reference brief and natural.",
     "- Finish cleanly. Do not end mid-sentence."
   );
