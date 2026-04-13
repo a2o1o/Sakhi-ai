@@ -121,7 +121,7 @@ function tokenize(text) {
 function classifyMessage(message) {
   const trimmed = String(message || "").trim();
   const lowered = trimmed.toLowerCase();
-  const greetingOnly = /^(hi+|hey+|hello|yo+|sup)\b[.!? ]*$/i.test(trimmed);
+  const greetingOnly = /^(hi+|hey+|hello|helo|ello|elo|yo+|sup)\b[.!? ]*$/i.test(trimmed);
   const signoffOnly = /^(bye+|byee+|goodbye|gn|good night|see you|cya|ttyl|take care|thanks|thank you|ok|okay)\b[.!? ]*$/i.test(trimmed);
   const casualPatterns = [
     "how are you",
@@ -330,7 +330,7 @@ function looksTooLongForMobile(text) {
 function getCasualReply(message) {
   const lowered = String(message || "").trim().toLowerCase();
 
-  if (/^(hi+|hey+|hello)\b/.test(lowered)) {
+  if (/^(hi+|hey+|hello|helo|ello|elo)\b/.test(lowered)) {
     return "Hey :) what's on your mind?";
   }
 
