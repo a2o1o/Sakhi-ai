@@ -785,7 +785,7 @@ function normalizeMemoryScope(value) {
 }
 
 function shouldUseMemory(scope) {
-  return normalizeMemoryScope(scope) !== "off";
+  return ["off", "topic", "keep"].includes(normalizeMemoryScope(scope));
 }
 
 function isResetRequested(value) {
@@ -797,6 +797,13 @@ function getSessionKey({ req, source, sessionId, userId, stage, topic, memorySco
   const normalizedTopic = normalizeStage(topic || "general");
   const scope = normalizeMemoryScope(memoryScope);
   const scopeSuffix = scope === "keep" ? "" : `:${normalizedStage}:${normalizedTopic}`;
+
+  if (scope === "off") {
+    const ip = String(req.ip || req.headers["x-forwarded-for"] || "anon")
+      .split(",")[0]
+      .trim();
+    return `thread:${source || "app"}:${ip}${scopeSuffix}`;
+  }
 
   if (typeof userId === "string" && userId.trim()) {
     return `user:${userId.trim().slice(0, 120)}${scopeSuffix}`;
