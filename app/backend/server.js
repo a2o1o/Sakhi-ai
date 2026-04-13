@@ -273,41 +273,15 @@ function getLocalFallbackReply({ message, topic, language }) {
   }
 
   const topicLabel = getFallbackTopicLabel(topic, language);
-  const useMaitriOpening = shouldLeadWithMaitriTag(topic);
-
   if (language === "hindi") {
-    const prefix = useMaitriOpening
-      ? ensureMaitriOpening(
-          topic,
-          language,
-          "abhi bhi pehle chhote step se shuru karna madadgar ho sakta hai.",
-          message
-        )
-      : "Yeh baat abhi kaafi bhaari lag rahi hai.";
-    return `${prefix} Abhi Sakhi par zyada demand hai, isliye main short reply de rahi hoon. ${topicLabel === "is baat" ? "Sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna madadgar ho sakta hai.`} Ek kaam kijiye: abhi batayiye ki sabse zyada confusion kis baat par hai, aur main wahi se continue karungi.`;
+    return `Main short reply de rahi hoon. Abhi Sakhi par zyada demand hai. ${topicLabel === "is baat" ? "Sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna madadgar ho sakta hai.`} Abhi batayiye ki sabse zyada confusion kis baat par hai, aur main wahi se continue karungi.`;
   }
 
   if (language === "hinglish") {
-    const prefix = useMaitriOpening
-      ? ensureMaitriOpening(
-          topic,
-          language,
-          "abhi bhi ek chhote step se shuru karna helpful ho sakta hai.",
-          message
-        )
-      : "Yeh abhi kaafi heavy lag raha hai.";
-    return `${prefix} Abhi Sakhi par thoda zyada load hai, isliye main short reply de rahi hoon. ${topicLabel === "is baat" ? "Tumhe sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna helpful ho sakta hai.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
+    return `Main short reply de rahi hoon. Abhi Sakhi par thoda zyada load hai. ${topicLabel === "is baat" ? "Tumhe sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna helpful ho sakta hai.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
   }
 
-  const prefix = useMaitriOpening
-    ? ensureMaitriOpening(
-        topic,
-        language,
-        "starting with one small step can still help right now.",
-        message
-      )
-    : "This feels heavy right now.";
-  return `${prefix} Sakhi is seeing high demand, so I am giving a shorter reply for now. ${topicLabel === "this" ? "You do not need to solve everything at once." : `It may help to break ${topicLabel} into one small next step.`} Tell me which part feels most stuck, and I will continue from there.`;
+  return `I’m giving a shorter reply for now. Sakhi is seeing high demand. ${topicLabel === "this" ? "You do not need to solve everything at once." : `It may help to break ${topicLabel} into one small next step.`} Tell me which part feels most stuck, and I will continue from there.`;
 }
 
 function isRetryableModelError(error) {
@@ -340,6 +314,18 @@ function getCasualReply(message) {
 
   if (lowered.includes("how are you")) {
     return "I'm here :) what's been going on?";
+  }
+
+  if (/^(bye+|byee+|goodbye|take care|see you|cya)\b/.test(lowered)) {
+    return "Bye :) come back anytime.";
+  }
+
+  if (/^(thanks|thank you|thx)\b/.test(lowered)) {
+    return "Anytime :)";
+  }
+
+  if (/^(ok|okay|cool|nice)\b/.test(lowered)) {
+    return "okay :)";
   }
 
   return "You can take your time. What's been sitting with you lately?";
@@ -791,20 +777,38 @@ function getPeerContext(stage, topic, message) {
   return shouldUsePeerContext(message, selected) ? selected : [];
 }
 
-function getSessionKey({ req, source, sessionId, userId, stage, topic }) {
+function normalizeMemoryScope(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "keep") return "keep";
+  if (normalized === "off") return "off";
+  return "topic";
+}
+
+function shouldUseMemory(scope) {
+  return normalizeMemoryScope(scope) !== "off";
+}
+
+function isResetRequested(value) {
+  return ["1", "true", "yes", "reset"].includes(String(value || "").trim().toLowerCase());
+}
+
+function getSessionKey({ req, source, sessionId, userId, stage, topic, memoryScope }) {
+  const normalizedStage = normalizeStage(stage || "unknown");
+  const normalizedTopic = normalizeStage(topic || "general");
+  const scope = normalizeMemoryScope(memoryScope);
+  const scopeSuffix = scope === "keep" ? "" : `:${normalizedStage}:${normalizedTopic}`;
+
   if (typeof userId === "string" && userId.trim()) {
-    return `user:${userId.trim().slice(0, 120)}`;
+    return `user:${userId.trim().slice(0, 120)}${scopeSuffix}`;
   }
 
   if (typeof sessionId === "string" && sessionId.trim()) {
-    return `session:${sessionId.trim().slice(0, 120)}`;
+    return `session:${sessionId.trim().slice(0, 120)}${scopeSuffix}`;
   }
 
   const ip = String(req.ip || req.headers["x-forwarded-for"] || "anon")
     .split(",")[0]
     .trim();
-  const normalizedStage = normalizeStage(stage || "unknown");
-  const normalizedTopic = normalizeStage(topic || "general");
   return `fallback:${source || "app"}:${ip}:${normalizedStage}:${normalizedTopic}`;
 }
 
@@ -836,6 +840,18 @@ function storeConversationTurn(sessionKey, role, text) {
   schedulePersistConversationStore();
 }
 
+function clearConversationSession(sessionKey) {
+  if (!sessionKey) return;
+  if (conversationStore.delete(sessionKey)) {
+    schedulePersistConversationStore();
+  }
+}
+
+function clearAllConversationMemory() {
+  conversationStore.clear();
+  schedulePersistConversationStore();
+}
+
 function isPracticalTopic(topic) {
   return practicalTopics.has(normalizeStage(topic));
 }
@@ -853,18 +869,44 @@ function shouldLeadWithMaitriTag(topic) {
   return normalized === "scholarships" || normalized === "internships";
 }
 
-function ensureMaitriOpening(topic, language, text, message = "") {
+function shouldUseMaitriOpening({ topic, message, peerSnippets = [], history = [] }) {
   if (!shouldLeadWithMaitriTag(topic)) {
+    return false;
+  }
+
+  const messageText = String(message || "").trim();
+  if (!messageText || classifyMessage(messageText) === "casual") {
+    return false;
+  }
+
+  if (tokenize(messageText).length < 4) {
+    return false;
+  }
+
+  if (!peerSnippets.length && history.length > 0) {
+    return false;
+  }
+
+  const normalizedTopic = normalizeStage(topic);
+  const lowered = messageText.toLowerCase();
+  if (normalizedTopic === "scholarships") {
+    return /(scholar|scholarship|fees?|finance|money|fund|apply|application|boards?|12th)/i.test(lowered);
+  }
+
+  if (normalizedTopic === "internships") {
+    return /(intern|resume|cv|job|work|apply|application|career|experience)/i.test(lowered);
+  }
+
+  return false;
+}
+
+function ensureMaitriOpening(topic, language, text, message = "", peerSnippets = [], history = []) {
+  if (!shouldUseMaitriOpening({ topic, message, peerSnippets, history })) {
     return text;
   }
 
   const trimmed = String(text || "").trim();
-  const messageText = String(message || "").trim();
   if (!trimmed) {
-    return trimmed;
-  }
-
-  if (classifyMessage(messageText) === "casual") {
     return trimmed;
   }
 
@@ -930,7 +972,9 @@ function buildReflectivePrompt({ message, stage, topic, peerSnippets, history, l
     "",
     "Reply requirements",
     `- ${getLanguageInstruction(language)}`,
-    "- Acknowledge briefly, reflect the feeling, then offer something useful.",
+    "- First decide whether the user wants light conversation, practical help, or emotional support.",
+    "- Do not default to phrases like 'this feels heavy' unless the user clearly sounds distressed or overwhelmed.",
+    "- Acknowledge briefly, then either engage naturally or offer something useful.",
     "- Keep it warm, human, and concise.",
     "- If helpful, add one subtle peer-grounded line.",
     "- Offer one small next step or one focused question, not both unless very short.",
@@ -968,16 +1012,13 @@ function buildPracticalPrompt({ message, stage, topic, peerSnippets, history, la
     "Reply requirements",
     `- ${getLanguageInstruction(language)}`,
     "- Stay anchored to the selected topic.",
+    "- Do not assume the user already has a problem. If they are exploring, stay neutral and helpful.",
     "- Be practical, direct, and mobile-friendly.",
-    "- Use a short intro, then 2 or 3 compact bullets or options if useful.",
-    "- If the user sounds emotional, validate briefly before the practical guidance.",
+    "- Use a short intro, then 2 or 3 compact bullets or options only if useful.",
+    "- If the user sounds emotional, validate briefly before the practical guidance. Otherwise skip the emotional framing.",
     "- Prefer criteria, next steps, and shortlists over long explanations.",
-    shouldLeadWithMaitriTag(topic)
-      ? "- Begin the very first sentence with an explicit Maitri grounding line. Use wording like 'Many of your seniors from Maitri have shared...' or 'Many of your seniors from Maitri have felt...' before the rest of the guidance."
-      : "- When natural, you may mention Maitri seniors briefly so the user feels less alone.",
-    shouldLeadWithMaitriTag(topic)
-      ? "- For scholarships and internships, do not replace the Maitri wording with generic phrases like 'many girls' or 'many people'. It should explicitly mention Maitri seniors in the opening sentence."
-      : "- Keep any Maitri reference brief and natural.",
+    "- Use Maitri senior grounding only when it genuinely strengthens the answer. Do not force it into every reply.",
+    "- If you mention Maitri seniors, keep it brief and natural rather than as a repeated template.",
     "- Finish cleanly. Do not end mid-sentence."
   );
 
@@ -1170,7 +1211,7 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
       }
 
       setGeminiClientIndex(keyIndex);
-      return ensureMaitriOpening(topic, language, result.text, message);
+      return ensureMaitriOpening(topic, language, result.text, message, peerSnippets, history);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
@@ -1320,6 +1361,11 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.post("/api/memory/reset", requireAppToken, (_req, res) => {
+  clearAllConversationMemory();
+  res.json({ ok: true, cleared: "all" });
+});
+
 app.get("/api/dashboard-metrics", (_req, res) => {
   res.json({
     ok: true,
@@ -1383,7 +1429,12 @@ app.get(
     const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
     const sessionId = typeof req.query?.sessionId === "string" ? req.query.sessionId : "";
     const userId = typeof req.query?.userId === "string" ? req.query.userId : "";
-    const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
+    const memoryScope = normalizeMemoryScope(req.query?.memoryMode || req.query?.memoryScope);
+    const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic, memoryScope });
+    const useMemory = shouldUseMemory(memoryScope);
+    if (isResetRequested(req.query?.resetMemory)) {
+      clearConversationSession(sessionKey);
+    }
 
     if (!message.trim()) {
       res.status(400).type("text/plain").send("message must be a non-empty string.");
@@ -1396,8 +1447,10 @@ app.get(
 
       if (isHighRiskMessage(message)) {
         const reply = getSafetyReply(language);
-        storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", reply);
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", reply);
+        }
         recordSuccess(topic, reply, {
           mode: "safety",
           language,
@@ -1412,8 +1465,10 @@ app.get(
 
       if (mode === "casual") {
         const reply = getCasualReply(message);
-        storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", reply);
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", reply);
+        }
         recordSuccess(topic, reply, {
           mode,
           language,
@@ -1426,7 +1481,7 @@ app.get(
         return;
       }
 
-      const history = getConversationHistory(sessionKey);
+      const history = useMemory ? getConversationHistory(sessionKey) : [];
       const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
@@ -1436,8 +1491,10 @@ app.get(
         peerSnippets,
         history
       });
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", text);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", text);
+      }
       recordSuccess(topic, text, {
         mode,
         language,
@@ -1458,8 +1515,10 @@ app.get(
         latencyMs: Date.now() - startedAt
       });
       const fallback = getLocalFallbackReply({ message, topic, language });
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", fallback);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", fallback);
+      }
       res.type("text/plain").send(fallback);
     }
   }
@@ -1485,6 +1544,12 @@ app.post(
     const source = typeof req.query?.source === "string" ? req.query.source : "appinventor";
     const sessionId = typeof req.query?.sessionId === "string" ? req.query.sessionId : "";
     const userId = typeof req.query?.userId === "string" ? req.query.userId : "";
+    const memoryScope = normalizeMemoryScope(req.query?.memoryMode || req.query?.memoryScope);
+    const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic, memoryScope });
+    const useMemory = shouldUseMemory(memoryScope);
+    if (isResetRequested(req.query?.resetMemory)) {
+      clearConversationSession(sessionKey);
+    }
 
     if (!message.trim()) {
       res.status(400).type("text/plain").send("message must be a non-empty string.");
@@ -1494,12 +1559,13 @@ app.post(
     try {
       const mode = classifyMessage(message);
       const language = detectLanguage(message);
-      const sessionKey = getSessionKey({ req, source, sessionId, userId, stage, topic });
 
       if (isHighRiskMessage(message)) {
         const reply = getSafetyReply(language);
-        storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", reply);
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", reply);
+        }
         recordSuccess(topic, reply, {
           mode: "safety",
           language,
@@ -1514,8 +1580,10 @@ app.post(
 
       if (mode === "casual") {
         const reply = getCasualReply(message);
-        storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", reply);
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", reply);
+        }
         recordSuccess(topic, reply, {
           mode,
           language,
@@ -1528,7 +1596,7 @@ app.post(
         return;
       }
 
-      const history = getConversationHistory(sessionKey);
+      const history = useMemory ? getConversationHistory(sessionKey) : [];
       const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
@@ -1538,8 +1606,10 @@ app.post(
         peerSnippets,
         history
       });
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", text);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", text);
+      }
       recordSuccess(topic, text, {
         mode,
         language,
@@ -1560,8 +1630,10 @@ app.post(
         latencyMs: Date.now() - startedAt
       });
       const fallback = getLocalFallbackReply({ message, topic, language });
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", fallback);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", fallback);
+      }
       res.type("text/plain").send(fallback);
     }
   }
@@ -1569,16 +1641,22 @@ app.post(
 
 app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res) => {
   const startedAt = Date.now();
-  const { message, userId, sessionId, stage, topic } = req.body ?? {};
+  const { message, userId, sessionId, stage, topic, memoryMode, memoryScope, resetMemory } = req.body ?? {};
+  const normalizedMemoryScope = normalizeMemoryScope(memoryMode || memoryScope);
   const sessionKey = getSessionKey({
     req,
     source: "mit-app-inventor-ai2a",
     sessionId,
     userId,
     stage,
-    topic
+    topic,
+    memoryScope: normalizedMemoryScope
   });
+  const useMemory = shouldUseMemory(normalizedMemoryScope);
   const userKey = typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "";
+  if (isResetRequested(resetMemory)) {
+    clearConversationSession(sessionKey);
+  }
 
   if (typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message must be a non-empty string." });
@@ -1591,8 +1669,10 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
 
     if (isHighRiskMessage(message)) {
       const reply = getSafetyReply(language);
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", reply);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+      }
       recordSuccess(topic, reply, {
         mode: "safety",
         language,
@@ -1613,8 +1693,10 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
 
     if (mode === "casual") {
       const reply = getCasualReply(message);
-      storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", reply);
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", reply);
+      }
       recordSuccess(topic, reply, {
         mode,
         language,
@@ -1632,7 +1714,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       return;
     }
 
-    const history = getConversationHistory(sessionKey);
+    const history = useMemory ? getConversationHistory(sessionKey) : [];
     const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
     const text = await generateSakhiReply({
       message,
@@ -1642,8 +1724,10 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       peerSnippets,
       history
     });
-    storeConversationTurn(sessionKey, "user", message);
-    storeConversationTurn(sessionKey, "sakhi", text);
+    if (useMemory) {
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", text);
+    }
     recordSuccess(topic, text, {
       mode,
       language,
@@ -1671,8 +1755,10 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       latencyMs: Date.now() - startedAt
     });
     const fallback = getLocalFallbackReply({ message, topic, language });
-    storeConversationTurn(sessionKey, "user", message);
-    storeConversationTurn(sessionKey, "sakhi", fallback);
+    if (useMemory) {
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", fallback);
+    }
     res.json({
       reply: fallback,
       model,
