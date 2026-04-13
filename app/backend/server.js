@@ -274,14 +274,14 @@ function getLocalFallbackReply({ message, topic, language }) {
 
   const topicLabel = getFallbackTopicLabel(topic, language);
   if (language === "hindi") {
-    return `Main short reply de rahi hoon. Abhi Sakhi par zyada demand hai. ${topicLabel === "is baat" ? "Sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna madadgar ho sakta hai.`} Abhi batayiye ki sabse zyada confusion kis baat par hai, aur main wahi se continue karungi.`;
+    return `${topicLabel === "is baat" ? "Theek hai, hum ise aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas itna batayiye ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
   }
 
   if (language === "hinglish") {
-    return `Main short reply de rahi hoon. Abhi Sakhi par thoda zyada load hai. ${topicLabel === "is baat" ? "Tumhe sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna helpful ho sakta hai.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
+    return `${topicLabel === "is baat" ? "Theek hai, hum isse aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
   }
 
-  return `I’m giving a shorter reply for now. Sakhi is seeing high demand. ${topicLabel === "this" ? "You do not need to solve everything at once." : `It may help to break ${topicLabel} into one small next step.`} Tell me which part feels most stuck, and I will continue from there.`;
+  return `${topicLabel === "this" ? "Okay, we can take this one step at a time." : `Let’s break ${topicLabel} into one clear next step.`} Tell me which part feels most confusing or stuck, and I’ll continue from there.`;
 }
 
 function isRetryableModelError(error) {
@@ -298,7 +298,7 @@ function looksIncompleteResponse(text) {
 }
 
 function looksTooLongForMobile(text) {
-  return String(text || "").trim().length > 650;
+  return String(text || "").trim().length > 1000;
 }
 
 function getCasualReply(message) {
@@ -1013,8 +1013,8 @@ function buildPracticalPrompt({ message, stage, topic, peerSnippets, history, la
     `- ${getLanguageInstruction(language)}`,
     "- Stay anchored to the selected topic.",
     "- Do not assume the user already has a problem. If they are exploring, stay neutral and helpful.",
-    "- Be practical, direct, and mobile-friendly.",
-    "- Use a short intro, then 2 or 3 compact bullets or options only if useful.",
+    "- Be practical, direct, and easy to read on a phone.",
+    "- Use a brief intro, then 2 to 4 compact bullets or options only if useful.",
     "- If the user sounds emotional, validate briefly before the practical guidance. Otherwise skip the emotional framing.",
     "- Prefer criteria, next steps, and shortlists over long explanations.",
     "- Use Maitri senior grounding only when it genuinely strengthens the answer. Do not force it into every reply.",
@@ -1106,7 +1106,7 @@ async function rewriteForMobile({ text, language, topic }) {
     "",
     "Rewrite the reply below so it is easier to read on a phone.",
     "Keep the same meaning.",
-    "Use at most 3 short sentences or 2 short bullets.",
+    "Use at most 5 short sentences or up to 4 short bullets.",
     "End cleanly.",
     "",
     "Reply",
@@ -1115,7 +1115,7 @@ async function rewriteForMobile({ text, language, topic }) {
 
   return generateGeminiText({
     prompt,
-    tokenLimit: 220
+    tokenLimit: 420
   });
 }
 
