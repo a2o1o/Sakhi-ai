@@ -235,6 +235,81 @@ function getTemporaryFailureReply(language) {
   return "Sakhi is not working right now. Please come back a little later and try again.";
 }
 
+function getFallbackTopicLabel(topic, language) {
+  const normalizedTopic = normalizeStage(topic);
+  const labels = {
+    english: {
+      scholarships: "scholarships",
+      internships: "internships",
+      "after 12th options": "options after 12th",
+      "courses & upskilling": "courses and upskilling",
+      "courses and upskilling": "courses and upskilling",
+      "open concern": "this"
+    },
+    hinglish: {
+      scholarships: "scholarships",
+      internships: "internships",
+      "after 12th options": "12th ke baad ke options",
+      "courses & upskilling": "courses aur upskilling",
+      "courses and upskilling": "courses aur upskilling",
+      "open concern": "is baat"
+    },
+    hindi: {
+      scholarships: "scholarships",
+      internships: "internships",
+      "after 12th options": "12th ke baad ke options",
+      "courses & upskilling": "courses aur upskilling",
+      "courses and upskilling": "courses aur upskilling",
+      "open concern": "is baat"
+    }
+  };
+
+  return labels[language]?.[normalizedTopic] || labels[language]?.["open concern"] || "this";
+}
+
+function getLocalFallbackReply({ message, topic, language }) {
+  if (classifyMessage(message) === "casual") {
+    return getCasualReply(message);
+  }
+
+  const topicLabel = getFallbackTopicLabel(topic, language);
+  const useMaitriOpening = shouldLeadWithMaitriTag(topic);
+
+  if (language === "hindi") {
+    const prefix = useMaitriOpening
+      ? ensureMaitriOpening(
+          topic,
+          language,
+          "abhi bhi pehle chhote step se shuru karna madadgar ho sakta hai.",
+          message
+        )
+      : "Yeh baat abhi kaafi bhaari lag rahi hai.";
+    return `${prefix} Abhi Sakhi par zyada demand hai, isliye main short reply de rahi hoon. ${topicLabel === "is baat" ? "Sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna madadgar ho sakta hai.`} Ek kaam kijiye: abhi batayiye ki sabse zyada confusion kis baat par hai, aur main wahi se continue karungi.`;
+  }
+
+  if (language === "hinglish") {
+    const prefix = useMaitriOpening
+      ? ensureMaitriOpening(
+          topic,
+          language,
+          "abhi bhi ek chhote step se shuru karna helpful ho sakta hai.",
+          message
+        )
+      : "Yeh abhi kaafi heavy lag raha hai.";
+    return `${prefix} Abhi Sakhi par thoda zyada load hai, isliye main short reply de rahi hoon. ${topicLabel === "is baat" ? "Tumhe sab kuch ek saath solve karne ki zaroorat nahi hai." : `${topicLabel} ko ek chhote step mein todna helpful ho sakta hai.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
+  }
+
+  const prefix = useMaitriOpening
+    ? ensureMaitriOpening(
+        topic,
+        language,
+        "starting with one small step can still help right now.",
+        message
+      )
+    : "This feels heavy right now.";
+  return `${prefix} Sakhi is seeing high demand, so I am giving a shorter reply for now. ${topicLabel === "this" ? "You do not need to solve everything at once." : `It may help to break ${topicLabel} into one small next step.`} Tell me which part feels most stuck, and I will continue from there.`;
+}
+
 function isRetryableModelError(error) {
   const message = String(error?.message || error || "").toLowerCase();
   return /429|503|rate|quota|too many|service unavailable|overloaded|unavailable/.test(message);
@@ -1360,7 +1435,10 @@ app.get(
         userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
-      res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
+      const fallback = getLocalFallbackReply({ message, topic, language });
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", fallback);
+      res.type("text/plain").send(fallback);
     }
   }
 );
@@ -1459,7 +1537,10 @@ app.post(
         userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
         latencyMs: Date.now() - startedAt
       });
-      res.status(503).type("text/plain").send(getTemporaryFailureReply(language));
+      const fallback = getLocalFallbackReply({ message, topic, language });
+      storeConversationTurn(sessionKey, "user", message);
+      storeConversationTurn(sessionKey, "sakhi", fallback);
+      res.type("text/plain").send(fallback);
     }
   }
 );
@@ -1467,6 +1548,15 @@ app.post(
 app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res) => {
   const startedAt = Date.now();
   const { message, userId, sessionId, stage, topic } = req.body ?? {};
+  const sessionKey = getSessionKey({
+    req,
+    source: "mit-app-inventor-ai2a",
+    sessionId,
+    userId,
+    stage,
+    topic
+  });
+  const userKey = typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "";
 
   if (typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message must be a non-empty string." });
@@ -1476,15 +1566,6 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
   try {
     const mode = classifyMessage(message);
     const language = detectLanguage(message);
-    const sessionKey = getSessionKey({
-      req,
-      source: "mit-app-inventor-ai2a",
-      sessionId,
-      userId,
-      stage,
-      topic
-    });
-    const userKey = typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "";
 
     if (isHighRiskMessage(message)) {
       const reply = getSafetyReply(language);
@@ -1567,8 +1648,15 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       userKey,
       latencyMs: Date.now() - startedAt
     });
-    res.status(503).json({
-      error: getTemporaryFailureReply(language)
+    const fallback = getLocalFallbackReply({ message, topic, language });
+    storeConversationTurn(sessionKey, "user", message);
+    storeConversationTurn(sessionKey, "sakhi", fallback);
+    res.json({
+      reply: fallback,
+      model,
+      mode: "fallback",
+      peerContextCount: 0,
+      topic
     });
   }
 });
