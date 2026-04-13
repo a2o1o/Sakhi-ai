@@ -397,6 +397,8 @@ const analyticsStoreFile =
   process.env.ANALYTICS_STORE_FILE || path.join(repoRoot, "data", "sakhi-analytics.json");
 const memoryRetentionMs =
   Number(process.env.MEMORY_RETENTION_DAYS || 30) * 24 * 60 * 60 * 1000;
+const transientMemoryRetentionMs =
+  Number(process.env.TRANSIENT_MEMORY_RETENTION_MINUTES || 20) * 60 * 1000;
 const MAX_TURNS_PER_SESSION = 2;
 const practicalTopics = new Set([
   "scholarships",
@@ -466,11 +468,15 @@ function normalizeConversationEntry(value) {
 }
 
 function isExpiredTimestamp(timestamp) {
+  return isExpiredTimestampForRetention(timestamp, memoryRetentionMs);
+}
+
+function isExpiredTimestampForRetention(timestamp, retentionMs) {
   const time = new Date(timestamp).getTime();
   if (!Number.isFinite(time)) {
     return true;
   }
-  return Date.now() - time > memoryRetentionMs;
+  return Date.now() - time > retentionMs;
 }
 
 function loadPersistentConversationStore() {
@@ -506,6 +512,9 @@ function loadPersistentConversationStore() {
 function serializeConversationStore() {
   const output = {};
   for (const [key, value] of conversationStore.entries()) {
+    if (String(key).startsWith("transient:")) {
+      continue;
+    }
     output[key] = {
       history: value.history,
       updatedAt: value.updatedAt
@@ -514,12 +523,24 @@ function serializeConversationStore() {
   return output;
 }
 
+function isPersistentConversationKey(sessionKey) {
+  return !String(sessionKey || "").startsWith("transient:");
+}
+
+function getConversationRetentionMs(sessionKey) {
+  return isPersistentConversationKey(sessionKey)
+    ? memoryRetentionMs
+    : transientMemoryRetentionMs;
+}
+
 function pruneConversationStore() {
   let changed = false;
   for (const [key, value] of conversationStore.entries()) {
-    if (isExpiredTimestamp(value?.updatedAt)) {
+    if (isExpiredTimestampForRetention(value?.updatedAt, getConversationRetentionMs(key))) {
       conversationStore.delete(key);
-      changed = true;
+      if (isPersistentConversationKey(key)) {
+        changed = true;
+      }
     }
   }
   return changed;
@@ -799,10 +820,14 @@ function getSessionKey({ req, source, sessionId, userId, stage, topic, memorySco
   const scopeSuffix = scope === "keep" ? "" : `:${normalizedStage}:${normalizedTopic}`;
 
   if (scope === "off") {
+    if (typeof sessionId === "string" && sessionId.trim()) {
+      return `transient:session:${sessionId.trim().slice(0, 120)}${scopeSuffix}`;
+    }
+
     const ip = String(req.ip || req.headers["x-forwarded-for"] || "anon")
       .split(",")[0]
       .trim();
-    return `thread:${source || "app"}:${ip}${scopeSuffix}`;
+    return `transient:fallback:${source || "app"}:${ip}${scopeSuffix}`;
   }
 
   if (typeof userId === "string" && userId.trim()) {
@@ -825,9 +850,11 @@ function getConversationHistory(sessionKey) {
     return [];
   }
 
-  if (isExpiredTimestamp(entry.updatedAt)) {
+  if (isExpiredTimestampForRetention(entry.updatedAt, getConversationRetentionMs(sessionKey))) {
     conversationStore.delete(sessionKey);
-    schedulePersistConversationStore();
+    if (isPersistentConversationKey(sessionKey)) {
+      schedulePersistConversationStore();
+    }
     return [];
   }
 
@@ -844,13 +871,17 @@ function storeConversationTurn(sessionKey, role, text) {
   existing.history = existing.history.slice(-MAX_TURNS_PER_SESSION);
   existing.updatedAt = new Date().toISOString();
   conversationStore.set(sessionKey, existing);
-  schedulePersistConversationStore();
+  if (isPersistentConversationKey(sessionKey)) {
+    schedulePersistConversationStore();
+  }
 }
 
 function clearConversationSession(sessionKey) {
   if (!sessionKey) return;
   if (conversationStore.delete(sessionKey)) {
-    schedulePersistConversationStore();
+    if (isPersistentConversationKey(sessionKey)) {
+      schedulePersistConversationStore();
+    }
   }
 }
 
