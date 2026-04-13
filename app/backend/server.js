@@ -675,12 +675,31 @@ function getGeminiClient(index = geminiClientIndex) {
   };
 }
 
+function setGeminiClientIndex(index) {
+  if (!geminiClients.length) {
+    geminiClientIndex = 0;
+    return geminiClientIndex;
+  }
+
+  geminiClientIndex = ((index % geminiClients.length) + geminiClients.length) % geminiClients.length;
+  return geminiClientIndex;
+}
+
 function rotateGeminiClient(previousIndex) {
   if (!geminiClients.length) {
     return 0;
   }
-  geminiClientIndex = (((previousIndex ?? geminiClientIndex) + 1) % geminiClients.length + geminiClients.length) % geminiClients.length;
-  return geminiClientIndex;
+  return setGeminiClientIndex((previousIndex ?? geminiClientIndex) + 1);
+}
+
+function getGeminiAttemptOrder() {
+  if (!geminiClients.length) {
+    return [];
+  }
+
+  return Array.from({ length: geminiClients.length }, (_, offset) =>
+    ((geminiClientIndex + offset) % geminiClients.length + geminiClients.length) % geminiClients.length
+  );
 }
 
 function scoreSnippet(snippet, queryTokens) {
@@ -975,8 +994,8 @@ function getResponseTokenLimit(topic) {
   return isPracticalTopic(topic) ? Math.min(maxOutputTokens, 500) : Math.min(maxOutputTokens, 900);
 }
 
-async function generateGeminiText({ prompt, tokenLimit }) {
-  const { client, keyIndex } = getGeminiClient();
+async function generateGeminiText({ prompt, tokenLimit, keyIndex: requestedKeyIndex = geminiClientIndex }) {
+  const { client, keyIndex } = getGeminiClient(requestedKeyIndex);
   const response = await client.models.generateContent({
     model,
     contents: prompt,
@@ -1071,10 +1090,13 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
   const tokenLimit = getResponseTokenLimit(topic);
 
   let lastError;
-  const maxAttempts = Math.max(2, geminiClients.length);
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+  const keyOrder = getGeminiAttemptOrder();
+  const attemptOrder = keyOrder.length ? keyOrder : [geminiClientIndex];
+
+  for (let attempt = 0; attempt < attemptOrder.length; attempt += 1) {
+    const keyIndex = attemptOrder[attempt];
     try {
-      let result = await generateGeminiText({ prompt, tokenLimit });
+      let result = await generateGeminiText({ prompt, tokenLimit, keyIndex });
 
       if (isIncompleteGeneration(result)) {
         analytics.truncatedResponses += 1;
@@ -1147,15 +1169,15 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
         }
       }
 
+      setGeminiClientIndex(keyIndex);
       return ensureMaitriOpening(topic, language, result.text, message);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
-      if (!retryable || attempt === maxAttempts - 1) {
+      if (!retryable || attempt === attemptOrder.length - 1) {
         throw error;
       }
-      rotateGeminiClient();
-      await wait(600 * (attempt + 1));
+      rotateGeminiClient(keyIndex);
     }
   }
 
