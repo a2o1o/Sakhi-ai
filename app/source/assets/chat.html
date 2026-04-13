@@ -24,6 +24,8 @@
     html {
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
     }
 
     body {
@@ -34,13 +36,14 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 13px;
       overflow-x: hidden;
+      overflow-y: scroll;
     }
 
     #chat {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      min-height: calc(100vh - 16px);
+      padding-bottom: 4px;
     }
 
     .empty {
@@ -102,6 +105,20 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(231, 215, 202, 0.55);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(110, 89, 122, 0.65);
+      border-radius: 999px;
+    }
   </style>
 </head>
 <body>
@@ -147,8 +164,6 @@
       chatRoot.innerHTML = messages.map((message) =>
         `<div class="row ${message.sender}"><div class="bubble"><div class="meta">${message.label}</div><div class="text">${escapeHtml(message.text)}</div></div></div>`
       ).join("");
-
-      requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
     }
 
     function escapeHtml(text) {

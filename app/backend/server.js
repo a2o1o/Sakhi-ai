@@ -108,6 +108,7 @@ function classifyMessage(message) {
   const trimmed = String(message || "").trim();
   const lowered = trimmed.toLowerCase();
   const greetingOnly = /^(hi+|hey+|hello|yo+|sup)\b[.!? ]*$/i.test(trimmed);
+  const signoffOnly = /^(bye+|byee+|goodbye|gn|good night|see you|cya|ttyl|take care|thanks|thank you|ok|okay)\b[.!? ]*$/i.test(trimmed);
   const casualPatterns = [
     "how are you",
     "what's up",
@@ -117,7 +118,7 @@ function classifyMessage(message) {
     "good afternoon"
   ];
 
-  if (greetingOnly || casualPatterns.some((pattern) => lowered.includes(pattern))) {
+  if (greetingOnly || signoffOnly || casualPatterns.some((pattern) => lowered.includes(pattern))) {
     return "casual";
   }
 
@@ -724,13 +725,18 @@ function shouldLeadWithMaitriTag(topic) {
   return normalized === "scholarships" || normalized === "internships";
 }
 
-function ensureMaitriOpening(topic, language, text) {
+function ensureMaitriOpening(topic, language, text, message = "") {
   if (!shouldLeadWithMaitriTag(topic)) {
     return text;
   }
 
   const trimmed = String(text || "").trim();
+  const messageText = String(message || "").trim();
   if (!trimmed) {
+    return trimmed;
+  }
+
+  if (classifyMessage(messageText) === "casual") {
     return trimmed;
   }
 
@@ -1013,7 +1019,7 @@ async function generateSakhiReply({ message, stage, topic, language, peerSnippet
         }
       }
 
-      return ensureMaitriOpening(topic, language, result.text);
+      return ensureMaitriOpening(topic, language, result.text, message);
     } catch (error) {
       lastError = error;
       const retryable = isRetryableModelError(error);
