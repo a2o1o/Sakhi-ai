@@ -79,6 +79,20 @@ const stageFileMap = {
     process.env.WORKING_WOMEN_RESPONSES_CSV ||
     path.join(repoRoot, "data", "Maitri-working-women-responses.csv")
 };
+const topicFileMap = {
+  scholarships:
+    process.env.SCHOLARSHIP_RESPONSES_CSV ||
+    path.join(
+      "C:\\Users\\anjgu\\Maitri\\Sakhi",
+      "Maitri's Scholars form - Give back to your juniors by sharing your journey (Responses) - Form Responses 1.csv"
+    ),
+  internships:
+    process.env.INTERNSHIP_RESPONSES_CSV ||
+    path.join(
+      "C:\\Users\\anjgu\\Maitri\\Sakhi",
+      "Maitri's Intern Sharing Form - Giving back to your juniors (Responses) - Form Responses 1.csv"
+    )
+};
 
 function normalizeStage(stage) {
   return String(stage || "")
@@ -310,6 +324,10 @@ const stageResponses = {
   school: loadStageResponses(stageFileMap.school, "School"),
   college: loadStageResponses(stageFileMap.college, "College"),
   "early work": loadStageResponses(stageFileMap["early work"], "Early Work")
+};
+const topicResponses = {
+  scholarships: loadStageResponses(topicFileMap.scholarships, "Scholarships"),
+  internships: loadStageResponses(topicFileMap.internships, "Internships")
 };
 
 const memoryStoreFile =
@@ -631,9 +649,10 @@ function shouldUsePeerContext(message, peerSnippets) {
   return peerSnippets[0].score >= 6;
 }
 
-function getPeerContext(stage, message) {
+function getTopicSpecificPeerPool(stage, topic) {
   const normalizedStage = normalizeStage(stage);
-  const pool =
+  const normalizedTopic = normalizeStage(topic);
+  const stagePool =
     stageResponses[normalizedStage] ||
     stageResponses[
       normalizedStage.includes("work")
@@ -643,6 +662,21 @@ function getPeerContext(stage, message) {
           : "school"
     ] ||
     [];
+
+  if (normalizedTopic === "scholarships") {
+    return [...(topicResponses.scholarships || []), ...stagePool];
+  }
+
+  if (normalizedTopic === "internships") {
+    return [...(topicResponses.internships || []), ...stagePool];
+  }
+
+  return stagePool;
+}
+
+function getPeerContext(stage, topic, message) {
+  const normalizedStage = normalizeStage(stage);
+  const pool = getTopicSpecificPeerPool(normalizedStage, topic);
 
   const queryTokens = tokenize(message);
   const ranked = pool
@@ -745,10 +779,29 @@ function ensureMaitriOpening(topic, language, text, message = "") {
   }
 
   let prefix = "Many of your seniors from Maitri have shared similar worries. ";
+  const normalizedTopic = normalizeStage(topic);
+  if (normalizedTopic === "scholarships") {
+    prefix = "Some of your seniors who have become scholars in various programs after their boards have shared - ";
+  } else if (normalizedTopic === "internships") {
+    prefix = "Some of your seniors who have gone on to internships and early work opportunities have shared - ";
+  }
+
   if (language === "hinglish") {
-    prefix = "Maitri ki bahut si seniors ne aise concerns share kiye hain. ";
+    if (normalizedTopic === "scholarships") {
+      prefix = "Aapki kuch seniors jo boards ke baad alag-alag scholarship programs tak pahunchi hain, unhone share kiya hai - ";
+    } else if (normalizedTopic === "internships") {
+      prefix = "Aapki kuch seniors jo internships aur early work opportunities tak pahunchi hain, unhone share kiya hai - ";
+    } else {
+      prefix = "Maitri ki bahut si seniors ne aise concerns share kiye hain. ";
+    }
   } else if (language === "hindi") {
-    prefix = "Maitri ki bahut si seniors ne aisi chintayein share ki hain. ";
+    if (normalizedTopic === "scholarships") {
+      prefix = "Aapki kuch seniors jo boards ke baad vibhinna scholarship programs tak pahunchi hain, unhone yeh share kiya hai - ";
+    } else if (normalizedTopic === "internships") {
+      prefix = "Aapki kuch seniors jo internships aur early work opportunities tak pahunchi hain, unhone yeh share kiya hai - ";
+    } else {
+      prefix = "Maitri ki bahut si seniors ne aisi chintayein share ki hain. ";
+    }
   }
 
   return `${prefix}${trimmed}`;
@@ -1277,7 +1330,7 @@ app.get(
       }
 
       const history = getConversationHistory(sessionKey);
-      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
         stage,
@@ -1376,7 +1429,7 @@ app.post(
       }
 
       const history = getConversationHistory(sessionKey);
-      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+      const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
         stage,
@@ -1477,7 +1530,7 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
     }
 
     const history = getConversationHistory(sessionKey);
-    const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, message));
+    const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
     const text = await generateSakhiReply({
       message,
       stage,
