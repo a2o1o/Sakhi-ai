@@ -324,20 +324,20 @@ function getLocalKnowledgeReply({ stage, topic, message, language }) {
       const lines = selected.map(
         (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
       );
-      return `Aapki kuch seniors jo boards ke baad alag-alag scholarship programs tak pahunchi hain, unhone in options jaise raaste explore kiye hain:\n${lines.join("\n")}\nAgar tum chaho, main inhe post-10 aur post-12 buckets mein aur clearly separate karke bata sakti hoon.`;
+      return `Aapki kuch seniors jo boards ke baad alag-alag scholarship programs tak pahunchi hain, unhone in options jaise raaste explore kiye hain:\n${lines.join("\n")}\nKya tum yeh bhi jaana chahogi ki jo seniors is process se guzri aur successful hui, unhone kya learnings aur experiences share kiye hain?`;
     }
 
     if (language === "hindi") {
       const lines = selected.map(
         (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
       );
-      return `Aapki kuch seniors jo boards ke baad vibhinna scholarship programs tak pahunchi hain, unhone in jaise options explore kiye hain:\n${lines.join("\n")}\nAgar aap chahen, main inhe post-10 aur post-12 categories mein aur clearly alag karke bhi bata sakti hoon.`;
+      return `Aapki kuch seniors jo boards ke baad vibhinna scholarship programs tak pahunchi hain, unhone in jaise options explore kiye hain:\n${lines.join("\n")}\nKya aap yeh bhi jaana chahengi ki jo seniors is process se guzri aur successful hui, unhone kaun si learnings aur experiences share kiye hain?`;
     }
 
     const lines = selected.map(
       (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, selection process ${item.process}.`
     );
-    return `Some of your seniors who have become scholars in different programs after their boards have explored options like:\n${lines.join("\n")}\nIf you want, I can also separate these into post-10 and post-12 options next.`;
+    return `Some of your seniors who have become scholars in different programs after their boards have explored options like:\n${lines.join("\n")}\nWould you also like to know what learnings and experiences your seniors shared after going through the process and becoming successful?`;
   }
 
   return "";
