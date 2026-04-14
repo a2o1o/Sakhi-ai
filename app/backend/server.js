@@ -375,21 +375,68 @@ function getFallbackTopicLabel(topic, language) {
   return labels[language]?.[normalizedTopic] || labels[language]?.["open concern"] || "this";
 }
 
+function looksLikeQuestion(message) {
+  const text = String(message || "").trim().toLowerCase();
+  return (
+    text.includes("?") ||
+    /^(what|which|who|where|when|why|how|can|could|should|do you|tell me|share|is there|are there)\b/i.test(text)
+  );
+}
+
 function getLocalFallbackReply({ message, topic, language }) {
   if (classifyMessage(message) === "casual") {
     return getCasualReply(message);
   }
 
   const topicLabel = getFallbackTopicLabel(topic, language);
+  const normalizedTopic = normalizeStage(topic);
+  const questionLike = looksLikeQuestion(message) || isInformationSeeking(message);
+
   if (language === "hindi") {
-    return `${topicLabel === "is baat" ? "Theek hai, hum ise aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas itna batayiye ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
+    if (normalizedTopic === "scholarships" && questionLike) {
+      return "Main abhi poori scholarship detail pull nahi kar pa rahi hoon, lekin hum use useful tareeke se narrow kar sakte hain. Aap post-10 options dekhna chahte hain ya post-12?";
+    }
+
+    if (normalizedTopic === "internships" && questionLike) {
+      return "Main abhi poori internship detail pull nahi kar pa rahi hoon, lekin hum isse roles, resume, ya apply karne ke steps mein break kar sakte hain. Aap kis part se shuru karna chahenge?";
+    }
+
+    if (questionLike) {
+      return "Main abhi poora answer pull nahi kar pa rahi hoon, lekin hum isse ek clear next step se start kar sakte hain. Aapko sabse pehle kis part ka answer chahiye?";
+    }
+
+    return `${topicLabel === "is baat" ? "Theek hai, hum ise aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas itna batayiye ki sabse zyada confusion kis part mein hai.`;
   }
 
   if (language === "hinglish") {
-    return `${topicLabel === "is baat" ? "Theek hai, hum isse aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai, aur main wahi se continue karungi.`;
+    if (normalizedTopic === "scholarships" && questionLike) {
+      return "Main abhi poori scholarship detail pull nahi kar pa rahi, but hum isse useful tareeke se narrow kar sakte hain. Tum post-10 options dekhna chahti ho ya post-12?";
+    }
+
+    if (normalizedTopic === "internships" && questionLike) {
+      return "Main abhi poori internship detail pull nahi kar pa rahi, but hum isse roles, resume, ya apply karne ke steps mein break kar sakte hain. Tum kis part se start karna chahti ho?";
+    }
+
+    if (questionLike) {
+      return "Main abhi full answer pull nahi kar pa rahi, but hum isse ek clear next step se start kar sakte hain. Tumhe sabse pehle kis part ka answer chahiye?";
+    }
+
+    return `${topicLabel === "is baat" ? "Theek hai, hum isse aaram se samajh sakte hain." : `${topicLabel} ko ek chhote aur clear step mein todte hain.`} Abhi mujhe bas yeh batao ki sabse zyada confusion kis part mein hai.`;
   }
 
-  return `${topicLabel === "this" ? "Okay, we can take this one step at a time." : `Let’s break ${topicLabel} into one clear next step.`} Tell me which part feels most confusing or stuck, and I’ll continue from there.`;
+  if (normalizedTopic === "scholarships" && questionLike) {
+    return "I can’t pull the full scholarship details right now, but we can still narrow this down. Do you want post-10 options first or post-12?";
+  }
+
+  if (normalizedTopic === "internships" && questionLike) {
+    return "I can’t pull the full internship details right now, but we can still make this concrete. Do you want to start with types of internships, resume basics, or where to apply?";
+  }
+
+  if (questionLike) {
+    return "I can’t pull the full answer right now, but we can still move this forward. Which part do you want first?";
+  }
+
+  return `${topicLabel === "this" ? "Okay, we can work through this calmly." : `Let’s break ${topicLabel} into one clear next step.`} Tell me which part feels most confusing or stuck.`;
 }
 
 function isRetryableModelError(error) {
@@ -1686,7 +1733,6 @@ app.get(
       const fallback = getLocalFallbackReply({ message, topic, language });
       if (useMemory) {
         storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", fallback);
       }
       res.type("text/plain").send(fallback);
     }
@@ -1819,7 +1865,6 @@ app.post(
       const fallback = getLocalFallbackReply({ message, topic, language });
       if (useMemory) {
         storeConversationTurn(sessionKey, "user", message);
-        storeConversationTurn(sessionKey, "sakhi", fallback);
       }
       res.type("text/plain").send(fallback);
     }
@@ -1968,7 +2013,6 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
     const fallback = getLocalFallbackReply({ message, topic, language });
     if (useMemory) {
       storeConversationTurn(sessionKey, "user", message);
-      storeConversationTurn(sessionKey, "sakhi", fallback);
     }
     res.json({
       reply: fallback,
