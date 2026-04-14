@@ -1,0 +1,7 @@
+stage,topic,sub_stage,name,minimum_marks,selection_process,amount_or_benefit,provider,link,notes,tags
+school,scholarships,post_class_10,Udayan Shalini Fellowship,75%,"Board percentage, entrance exam, interview, home visit",,"Udayan Care",,"Starter sample from user notes. Add official award amount and link.","post-10;girls;boards;interview;home-visit"
+school,scholarships,post_class_10,EY Disha Fellowship,80%,"Board percentage and interview",,"EY Foundation / Disha",,"Starter sample from user notes. Confirm provider naming, amount, and link.","post-10;girls;boards;interview"
+school,scholarships,post_class_10,Vidyadhan,80%,"Board percentage, written test, interview",,"Sarojini Damodaran Foundation",,"Starter sample from user notes. Add official amount and regional eligibility details.","post-10;boards;written-test;interview"
+school,scholarships,post_12,Cadence,80%,"12th percentage and multiple interviews",,Cadence,,"Starter sample from user notes. Add official award amount and link.","post-12;girls;boards;interview"
+school,scholarships,post_12,Kotak Kanya,70%,"12th percentage and interview",,Kotak,,"Starter sample from user notes. Add official award amount and link.","post-12;girls;boards;interview"
+school,scholarships,post_12,Karm,70%,"12th percentage, entrance test, interview, home visit",,,,"Starter sample from user notes. Confirm official scholarship title, award amount, and link.","post-12;boards;entrance-test;interview;home-visit"
