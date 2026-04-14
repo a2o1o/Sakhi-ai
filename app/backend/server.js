@@ -601,8 +601,132 @@ function getPost12ScholarshipComparisonReply(rows, language) {
   ].join("\n");
 }
 
+function getInternshipCommunityRows() {
+  return (topicResponses.internships || []).map((row) => ({
+    organization: String(row.organization || "").trim(),
+    roleSummary: String(row.role_summary || "").trim(),
+    viaMaitriSupport: String(row.via_maitri_support || "").trim(),
+    mode: String(row.mode || "").trim(),
+    location: String(row.location || "").trim(),
+    compensation: String(row.compensation || "").trim(),
+    gains: String(row.gains || "").trim(),
+    duringGraduation: String(row.during_graduation || "").trim(),
+    learnings: String(row.learnings || "").trim(),
+    canRecommendJuniors: String(row.can_recommend_juniors || "").trim()
+  }));
+}
+
+function getInternshipStartReply(language) {
+  const rows = getInternshipCommunityRows();
+  const paidDuringCollege = rows.some(
+    (row) => /paid/i.test(row.compensation) && /yes/i.test(row.duringGraduation)
+  );
+  const onlinePossible = rows.some((row) => /online/i.test(row.mode));
+  const maitriSupported = rows.some((row) => /yes/i.test(row.viaMaitriSupport));
+
+  if (language === "hinglish") {
+    const lines = [
+      "Aapki kuch seniors ne internships graduation ke saath hi explore ki thi, aur young women in the community ne bhi yeh cheezein useful payi hain:",
+      "- Sabse pehle ek realistic starting bucket chuno, jaise research, data / operations, analytics support, content, ya outreach jahan tum quickly contribute kar sako.",
+      onlinePossible
+        ? "- Online internships bhi possible hoti hain, isliye college ke saath start karna practical ho sakta hai."
+        : "- College ke saath manageable roles dhoondhna important hota hai, taaki load realistic rahe.",
+      paidDuringCollege
+        ? "- Community sharing se yeh bhi dikha ki paid internships confidence aur financial support dono de sakti hain, isliye unpaid role ko default mat maano."
+        : "- Experience ke saath compensation aur learning dono dekhna useful hota hai.",
+      maitriSupported
+        ? "- Maitri network, seniors, teachers, aur mentors se puchhna worth it hota hai, kyunki referrals aur introductions difference la sakte hain."
+        : "- Seniors, teachers, aur mentors se puchhna worth it hota hai, kyunki referrals aur introductions difference la sakte hain."
+    ];
+    lines.push("Agar tum chaho, main next step mein yeh bhi share kar sakti hoon ki seniors ne college ke saath internship balance karte waqt kya learnings share ki.");
+    return lines.join("\n");
+  }
+
+  if (language === "hindi") {
+    const lines = [
+      "Aapki kuch seniors ne graduation ke saath internships explore ki thi, aur community mein aage badh chuki young women ne bhi yeh baatein useful payi hain:",
+      "- Sabse pehle ek realistic starting bucket chuniye, jaise research, data / operations, analytics support, content, ya outreach jahan aap jaldi contribute kar sakein.",
+      onlinePossible
+        ? "- Online internships bhi possible hoti hain, isliye college ke saath shuru karna practical ho sakta hai."
+        : "- College ke saath manageable roles dhoondhna important hota hai, taaki load realistic rahe.",
+      paidDuringCollege
+        ? "- Community sharing se yeh bhi dikha ki paid internships confidence aur financial support dono de sakti hain, isliye unpaid role ko default mat maaniye."
+        : "- Experience ke saath compensation aur learning dono dekhna useful hota hai.",
+      maitriSupported
+        ? "- Maitri network, seniors, teachers, aur mentors se poochhna worth it hota hai, kyunki referrals aur introductions difference la sakte hain."
+        : "- Seniors, teachers, aur mentors se poochhna worth it hota hai, kyunki referrals aur introductions difference la sakte hain."
+    ];
+    lines.push("Agar aap chahen, main next step mein yeh bhi share kar sakti hoon ki seniors ne college ke saath internship balance karte waqt kya learnings share ki.");
+    return lines.join("\n");
+  }
+
+  const lines = [
+    "Some of your seniors explored internships alongside college, and young women in the community who are now working have found a few starting routes helpful:",
+    "- Start with a realistic bucket such as research, data or operations support, analytics support, content, or outreach where you can contribute quickly.",
+    onlinePossible
+      ? "- Online internships are possible too, so starting alongside college can be more manageable than it first seems."
+      : "- It helps to look for roles that are manageable alongside college rather than trying to do everything at once.",
+    paidDuringCollege
+      ? "- Community sharings also show that paid internships can bring both confidence and financial support, so do not assume unpaid work is the only way to start."
+      : "- It helps to weigh learning and compensation together instead of chasing any internship label.",
+    maitriSupported
+      ? "- Asking through the Maitri network, seniors, teachers, and mentors can genuinely help, because introductions and referrals often make the first step easier."
+      : "- Asking seniors, teachers, and mentors can genuinely help, because introductions and referrals often make the first step easier."
+  ];
+  lines.push("If you want, I can next share what seniors found most useful while balancing internships with college.");
+  return lines.join("\n");
+}
+
+function getInternshipLearningsReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Haan. Internship form sharings aur community experiences se kuch clear learnings saamne aayi hain:",
+      "- Agar possible ho, paid opportunity ko seriously consider karo, kyunki seniors ne feel kiya ki isse professionalism aur self-worth dono strong hote hain.",
+      "- Boundaries important hoti hain. Seniors ne kaha ki authority ko respect karo, but apni limits bhi samjho.",
+      "- Questions poochhna weakness nahi hoti. Team se clarify karna aur collaborate karna kaafi helpful raha.",
+      "- Detail aur accuracy kaafi matter karti hai, especially data ya research type roles mein.",
+      "- College ke saath internship karna possible hai, lekin realistic workload choose karna important hota hai."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Haan. Internship form sharings aur community experiences se kuch clear learnings saamne aayi hain:",
+      "- Agar possible ho, paid opportunity ko seriously consider kijiye, kyunki seniors ne mehsoos kiya ki isse professionalism aur self-worth dono strong hote hain.",
+      "- Boundaries important hoti hain. Seniors ne kaha ki authority ko respect kijiye, lekin apni limits bhi samajhiye.",
+      "- Questions poochhna weakness nahi hoti. Team se clarify karna aur collaborate karna kaafi helpful raha.",
+      "- Detail aur accuracy kaafi maayne rakhti hai, especially data ya research type roles mein.",
+      "- College ke saath internship karna possible hai, lekin realistic workload choose karna important hota hai."
+    ].join("\n");
+  }
+
+  return [
+    "Yes. A few clear learnings keep coming up from the internship sharings and from young women in the community:",
+    "- If possible, take paid opportunities seriously, because seniors found that payment affected both professionalism and self-worth.",
+    "- Boundaries matter. Seniors said it helps to respect authority without losing sight of your own limits.",
+    "- Asking questions is not a weakness. Clarifying tasks and collaborating with the team helped a lot.",
+    "- Accuracy and detail matter, especially in research and data-oriented roles.",
+    "- Doing an internship alongside college is possible, but choosing a realistic workload makes a big difference."
+  ].join("\n");
+}
+
 function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
   const effectiveTopic = inferEffectiveTopic(stage, topic, message);
+
+  if (
+    effectiveTopic === "internships" &&
+    normalizeStage(stage) === "college" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /what seniors found most useful while balancing internships with college|college ke saath internship balance karte waqt kya learnings/i.test(
+          String(item?.text || "")
+        )
+    )
+  ) {
+    return getInternshipLearningsReply(language);
+  }
 
   if (
     effectiveTopic === "scholarships" &&
@@ -715,6 +839,16 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
       (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, selection process ${item.process}.`
     );
     return `Some of your seniors who have become scholars in different programs after their boards have explored options like:\n${lines.join("\n")}\nWould you also like to know what learnings and experiences your seniors shared after going through the process and becoming successful?`;
+  }
+
+  if (effectiveTopic === "internships" && normalizeStage(stage) === "college" && isInformationSeeking(message)) {
+    const lowered = String(message || "").toLowerCase();
+    if (/(start|begin|looking|look for|find|while managing college|along with college|during college|internships during college)/i.test(lowered)) {
+      const internshipReply = getInternshipStartReply(language);
+      if (internshipReply) {
+        return internshipReply;
+      }
+    }
   }
 
   return "";
