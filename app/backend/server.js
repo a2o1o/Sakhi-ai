@@ -336,6 +336,87 @@ function getScholarshipLearningReply(language) {
   ].join("\n");
 }
 
+function getScholarshipChecklistReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Yes. Aapki seniors usually yeh simple documents ready rakhti thi:",
+      "- Aadhaar card ya koi basic identity proof",
+      "- Recent passport-size photos",
+      "- Class 10 marksheet ya jo latest marksheet form mein maangi gayi ho",
+      "- Income certificate",
+      "- Address proof, agar required ho",
+      "- Student ya parent bank details, agar scholarship form mein poochha gaya ho",
+      "- School ID ya bonafide letter, agar maanga gaya ho",
+      "Ek practical cheez jo seniors ko useful lagi: saare documents ki clear phone photos aur scanned copies ek hi folder mein rakhna. Agar tum chaho, main income certificate banwane ka usual process bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Haan. Aapki seniors aam taur par yeh simple documents ready rakhti thi:",
+      "- Aadhaar card ya koi basic identity proof",
+      "- Recent passport-size photos",
+      "- Class 10 marksheet ya jo latest marksheet form mein maangi gayi ho",
+      "- Income certificate",
+      "- Address proof, agar required ho",
+      "- Student ya parent bank details, agar scholarship form mein poochha gaya ho",
+      "- School ID ya bonafide letter, agar maanga gaya ho",
+      "Ek practical baat jo seniors ko useful lagi: saare documents ki clear phone photos aur scanned copies ek hi folder mein rakhna. Agar aap chahen, main income certificate banwane ka usual process bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  return [
+    "Yes. A simple checklist your seniors usually kept ready was:",
+    "- Aadhaar card or another identity proof",
+    "- Recent passport-size photos",
+    "- Class 10 marksheet or the latest marksheet asked for in the form",
+    "- Income certificate",
+    "- Address proof, if required",
+    "- Student or parent bank details, if the scholarship asks for them",
+    "- School ID or bonafide letter, if requested",
+    "One practical thing seniors found useful was keeping clear phone photos and scanned copies of everything in one folder. If you want, I can also tell you the usual process for getting an income certificate made."
+  ].join("\n");
+}
+
+function getScholarshipIncomeCertificateProcessReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Yes. Aapki seniors ke hisaab se usual process kuch is tarah hota hai:",
+      "- Pehle school, local tehsil office, ya revenue office se check karo ki tumhare area mein income certificate kis route se banta hai",
+      "- Basic documents ready rakho: identity proof, address proof, ration card agar available ho, aur parents ya guardians ki income details",
+      "- Form online state portal par ya offline local office mein fill karo",
+      "- Supporting documents submit karo",
+      "- Acknowledgement ya application number safely save karke rakho",
+      "- Follow-up karte raho, kyunki district ke hisaab se timeline vary kar sakti hai",
+      "Kaafi seniors ko yeh helpful laga ki final submit karne se pehle ek teacher, mentor, ya ghar ke kisi bade se form ek baar check kara liya jaye."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Haan. Aapki seniors ke anubhav ke hisaab se usual process kuch is tarah hota hai:",
+      "- Pehle school, local tehsil office, ya revenue office se check kijiye ki aapke area mein income certificate kis route se banta hai",
+      "- Basic documents ready rakhiye: identity proof, address proof, ration card agar available ho, aur parents ya guardians ki income details",
+      "- Form online state portal par ya offline local office mein bhariye",
+      "- Supporting documents submit kijiye",
+      "- Acknowledgement ya application number safely save karke rakhiye",
+      "- Follow-up karte rahiye, kyunki district ke hisaab se timeline alag ho sakti hai",
+      "Kaafi seniors ko yeh helpful laga ki final submit karne se pehle ek teacher, mentor, ya ghar ke kisi bade se form ek baar check kara liya jaye."
+    ].join("\n");
+  }
+
+  return [
+    "Yes. The usual process seniors described was:",
+    "- First check with your school, local tehsil office, or revenue office which route is used in your area for an income certificate",
+    "- Keep the basic documents ready: identity proof, address proof, ration card if available, and parent or guardian income details",
+    "- Fill the form either through the state portal or at the local office",
+    "- Submit the supporting documents",
+    "- Keep the acknowledgement or application number safely saved",
+    "- Follow up until it is issued, because timelines can vary by district",
+    "Many seniors found it helpful to ask one teacher, mentor, or family elder to review the form once before final submission."
+  ].join("\n");
+}
+
 function getScholarshipIncomeReply(rows, language) {
   const eligible = rows.filter((row) => row.incomeCriteria || row.incomeCertificateTiming);
   if (!eligible.length) {
@@ -404,6 +485,34 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
     )
   ) {
     return getScholarshipLearningReply(language);
+  }
+
+  if (
+    effectiveTopic === "scholarships" &&
+    normalizeStage(stage) === "school" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /simple document checklist|simple documents ready|simple documents/i.test(String(item?.text || ""))
+    )
+  ) {
+    return getScholarshipChecklistReply(language);
+  }
+
+  if (
+    effectiveTopic === "scholarships" &&
+    normalizeStage(stage) === "school" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /usual process for getting an income certificate made|income certificate banwane ka usual process/i.test(
+          String(item?.text || "")
+        )
+    )
+  ) {
+    return getScholarshipIncomeCertificateProcessReply(language);
   }
 
   if (effectiveTopic === "scholarships" && normalizeStage(stage) === "school" && isInformationSeeking(message)) {
