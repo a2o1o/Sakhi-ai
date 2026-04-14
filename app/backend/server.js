@@ -298,8 +298,57 @@ function formatScholarshipRow(row) {
   return { name, marks, process, subStage };
 }
 
-function getLocalKnowledgeReply({ stage, topic, message, language }) {
+function isAffirmativeReply(message) {
+  return /^(yes|yeah|yep|yup|haan|han|ha|ji|sure|okay|ok)\b/i.test(String(message || "").trim());
+}
+
+function getScholarshipLearningReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Aapki kuch seniors ne scholarship process se guzarte hue yeh learnings share ki hain:",
+      "- Jaldi start karna helpful hota hai, kyunki documents, deadlines, aur interview prep last minute mein stressful ho jata hai.",
+      "- Ek trusted teacher ya mentor se form aur eligibility check karwana kaafi useful raha.",
+      "- Interviews mein marks ke saath yeh bhi matter karta hai ki tum apni padhai aur goals ko kitni clearly samjha paati ho.",
+      "- Ek option miss ho jaaye to bhi rukna nahi chahiye, kyunki usually ek se zyada scholarships apply karne layak hoti hain."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Aapki kuch seniors ne scholarship process se guzarte hue yeh learnings share ki hain:",
+      "- Jaldi shuru karna helpful hota hai, kyunki documents, deadlines aur interview preparation last minute mein stressful ho jati hai.",
+      "- Kisi trusted teacher ya mentor se form aur eligibility ko ek baar check karwana kaafi upyogi raha.",
+      "- Interviews mein marks ke saath yeh bhi maayne rakhta hai ki aap apni padhai aur goals ko kitni clarity se samjha paati hain.",
+      "- Agar ek option miss ho jaaye to bhi rukna nahi chahiye, kyunki aam taur par ek se adhik scholarships apply karne layak hoti hain."
+    ].join("\n");
+  }
+
+  return [
+    "Some of your seniors who went through the scholarship process have shared a few things that helped them:",
+    "- Starting early made a real difference, because documents, deadlines, and interview prep became much easier to manage.",
+    "- Getting one teacher or mentor to review forms and eligibility details helped them avoid small mistakes.",
+    "- In interviews, clarity about their studies, interests, and future goals mattered as much as marks.",
+    "- Even if one application did not work out, applying to more than one option gave them a better chance."
+  ].join("\n");
+}
+
+function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
   const effectiveTopic = inferEffectiveTopic(stage, topic, message);
+
+  if (
+    effectiveTopic === "scholarships" &&
+    normalizeStage(stage) === "school" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /Would you also like to know what learnings and experiences your seniors shared|Kya tum yeh bhi jaana chahogi|Kya aap yeh bhi jaana chahengi/i.test(
+          String(item?.text || "")
+        )
+    )
+  ) {
+    return getScholarshipLearningReply(language);
+  }
 
   if (effectiveTopic === "scholarships" && normalizeStage(stage) === "school" && isInformationSeeking(message)) {
     const rows = structuredTopicRows.scholarships || [];
@@ -1679,7 +1728,8 @@ app.get(
         return;
       }
 
-      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+      const history = useMemory ? getConversationHistory(sessionKey) : [];
+      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language, history });
       if (localKnowledgeReply) {
         if (useMemory) {
           storeConversationTurn(sessionKey, "user", message);
@@ -1697,7 +1747,6 @@ app.get(
         return;
       }
 
-      const history = useMemory ? getConversationHistory(sessionKey) : [];
       const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
@@ -1811,7 +1860,8 @@ app.post(
         return;
       }
 
-      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+      const history = useMemory ? getConversationHistory(sessionKey) : [];
+      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language, history });
       if (localKnowledgeReply) {
         if (useMemory) {
           storeConversationTurn(sessionKey, "user", message);
@@ -1829,7 +1879,6 @@ app.post(
         return;
       }
 
-      const history = useMemory ? getConversationHistory(sessionKey) : [];
       const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
         message,
@@ -1946,7 +1995,8 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       return;
     }
 
-    const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+    const history = useMemory ? getConversationHistory(sessionKey) : [];
+    const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language, history });
     if (localKnowledgeReply) {
       if (useMemory) {
         storeConversationTurn(sessionKey, "user", message);
@@ -1970,7 +2020,6 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
       return;
     }
 
-    const history = useMemory ? getConversationHistory(sessionKey) : [];
     const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
     const text = await generateSakhiReply({
       message,
