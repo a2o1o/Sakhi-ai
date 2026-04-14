@@ -88,10 +88,7 @@ const topicFileMap = {
     ),
   internships:
     process.env.INTERNSHIP_RESPONSES_CSV ||
-    path.join(
-      "C:\\Users\\anjgu\\Maitri\\Sakhi",
-      "Maitri's Intern Sharing Form - Giving back to your juniors (Responses) - Form Responses 1.csv"
-    )
+    path.join(repoRoot, "data", "college-internships-community.csv")
 };
 const structuredTopicFileMap = {
   scholarships:
