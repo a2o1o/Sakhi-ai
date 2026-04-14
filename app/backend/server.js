@@ -536,6 +536,74 @@ function getPost12ScholarshipOptionsReply(rows, language) {
   ].join("\n");
 }
 
+function getPost12ScholarshipComparisonReply(rows, language) {
+  const selected = rows.filter((row) => row.subStage === "post-12").slice(0, 3);
+  if (!selected.length) {
+    return "";
+  }
+
+  const byName = Object.fromEntries(selected.map((item) => [item.name.toLowerCase(), item]));
+  const cadence = byName["cadence"];
+  const kotak = byName["kotak kanya"];
+  const karm = byName["karm"];
+
+  if (language === "hinglish") {
+    const lines = [];
+    if (cadence) {
+      lines.push(`- Cadence: yahan marks aur STEM direction dono matter karte hain. Seniors ko laga ki strong interview prep aur clear \"why STEM\" answer bahut important hota hai.`);
+    }
+    if (kotak) {
+      lines.push(`- Kotak Kanya: yahan documents aur eligibility precision sabse zyada matter karti hai. College eligibility aur paperwork mein chhoti galti bhi rejection la sakti hai.`);
+    }
+    if (karm) {
+      lines.push(`- Karm: yahan personal story aur growth potential ka weight zyada hota hai. Seniors ko laga ki generic answers yahan kaam nahi karte.`);
+    }
+    return [
+      "Haan. Aapki seniors ke experience se agar compare karein, to roughly picture kuch aisi dikhti hai:",
+      ...lines,
+      "Agar tum documents aur college eligibility ko lekar strong ho, to Kotak Kanya practical route lag sakta hai. Agar tumhari story aur drive strong hai, to Karm interesting ho sakta hai. Agar tum STEM direction mein clear ho, to Cadence worth exploring hai.",
+      "Agar tum chaho, main next step mein in teenon ke liye ek simple apply-order strategy bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    const lines = [];
+    if (cadence) {
+      lines.push(`- Cadence: yahan marks aur STEM direction dono maayne rakhte hain. Seniors ko laga ki strong interview preparation aur clear \"why STEM\" answer bahut important hota hai.`);
+    }
+    if (kotak) {
+      lines.push(`- Kotak Kanya: yahan documents aur eligibility precision sabse zyada maayne rakhti hai. College eligibility aur paperwork mein chhoti galti bhi rejection la sakti hai.`);
+    }
+    if (karm) {
+      lines.push(`- Karm: yahan personal story aur growth potential ka weight zyada hota hai. Seniors ko laga ki generic answers yahan kaam nahi karte.`);
+    }
+    return [
+      "Haan. Aapki seniors ke anubhav se agar compare karein, to roughly picture kuch aisi dikhti hai:",
+      ...lines,
+      "Agar aap documents aur college eligibility ko lekar strong hain, to Kotak Kanya ek practical route lag sakta hai. Agar aapki story aur drive strong hai, to Karm interesting ho sakta hai. Agar aap STEM direction mein clear hain, to Cadence worth exploring hai.",
+      "Agar aap chahen, main next step mein in teenon ke liye ek simple apply-order strategy bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  const lines = [];
+  if (cadence) {
+    lines.push("- Cadence: marks and STEM direction both matter here. Seniors found that interview prep and a clear answer to why STEM made a real difference.");
+  }
+  if (kotak) {
+    lines.push("- Kotak Kanya: documentation and eligibility precision matter the most here. Small paperwork mistakes or college-eligibility issues can block an otherwise strong application.");
+  }
+  if (karm) {
+    lines.push("- Karm: personal story and growth potential carry more weight here. Seniors found that generic answers did not help much.");
+  }
+
+  return [
+    "Yes. From what seniors in the community have found, the rough comparison looks like this:",
+    ...lines,
+    "So if you feel strongest on documents and college eligibility, Kotak Kanya may be the most practical route. If your story and drive are your biggest strengths, Karm may suit you better. If you are clear about a STEM direction, Cadence is worth exploring seriously.",
+    "If you want, I can next suggest a simple apply-order strategy across these three."
+  ].join("\n");
+}
+
 function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
   const effectiveTopic = inferEffectiveTopic(stage, topic, message);
 
@@ -580,6 +648,23 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
     )
   ) {
     return getScholarshipIncomeCertificateProcessReply(language);
+  }
+
+  if (
+    effectiveTopic === "scholarships" &&
+    normalizeStage(stage) === "school" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /compare these three in terms of where marks, documentation, and personal story matter most|in teenon ko compare karke/i.test(
+          String(item?.text || "")
+        )
+    )
+  ) {
+    const rows = structuredTopicRows.scholarships || [];
+    const selected = rows.map(formatScholarshipRow);
+    return getPost12ScholarshipComparisonReply(selected, language);
   }
 
   if (effectiveTopic === "scholarships" && normalizeStage(stage) === "school" && isInformationSeeking(message)) {
