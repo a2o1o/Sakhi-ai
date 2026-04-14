@@ -710,6 +710,81 @@ function getInternshipLearningsReply(language) {
   ].join("\n");
 }
 
+function getInternshipTypesReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Haan. Community sharings ko dekh kar, college ke saath realistically in jaise internships se start kiya ja sakta hai:",
+      "- Research ya media support roles, jahan fact-checking, content research, ya background work hota hai.",
+      "- Data entry, operations, ya backend support roles, jahan process discipline aur consistency matter karti hai.",
+      "- Data ya analytics support roles, jahan Excel, accuracy, aur detail useful hote hain.",
+      "- Small team ya startup-style roles, jahan ek intern ko multiple basic responsibilities mil sakti hain.",
+      "Agar tum bilkul shuruat par ho, to operations, research support, data support, ya outreach-type roles usually sabse realistic entry point hote hain.",
+      "Agar tum chaho, main next step mein simple apply process bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Haan. Community sharings ko dekhkar, college ke saath realistically in jaise internships se shuru kiya ja sakta hai:",
+      "- Research ya media support roles, jahan fact-checking, content research, ya background work hota hai.",
+      "- Data entry, operations, ya backend support roles, jahan process discipline aur consistency maayne rakhti hai.",
+      "- Data ya analytics support roles, jahan Excel, accuracy, aur detail useful hote hain.",
+      "- Small team ya startup-style roles, jahan ek intern ko multiple basic responsibilities mil sakti hain.",
+      "Agar aap bilkul shuruaat par hain, to operations, research support, data support, ya outreach-type roles aam taur par sabse realistic entry point hote hain.",
+      "Agar aap chahen, main agle step mein simple apply process bhi bata sakti hoon."
+    ].join("\n");
+  }
+
+  return [
+    "Yes. From the community sharings, these are some realistic internship types students can often start with alongside college:",
+    "- Research or media support roles, where the work may include fact-checking, content research, or background support.",
+    "- Data entry, operations, or backend support roles, where consistency and process discipline matter.",
+    "- Data or analytics support roles, where Excel, accuracy, and attention to detail help.",
+    "- Small-team or startup-style roles, where one intern may handle a few basic responsibilities together.",
+    "If you are just starting out, operations, research support, data support, or outreach-style roles are usually the most realistic entry points.",
+    "If you want, I can next share a simple apply process."
+  ].join("\n");
+}
+
+function getInternshipApplyReply(language) {
+  if (language === "hinglish") {
+    return [
+      "Haan. Ek simple apply process kuch aisa ho sakta hai:",
+      "- Pehle 1-page simple resume ready karo, jisme college, skills, projects, aur koi volunteering ya responsibility ho.",
+      "- 2-3 internship buckets choose karo, jaise research, data support, content, ya operations.",
+      "- LinkedIn, Internshala, company pages, aur seniors ya mentors ke network se openings dhoondo.",
+      "- Har application ke saath ek chhota tailored message bhejo ki tum kyu interested ho aur kya contribute kar sakti ho.",
+      "- Agar reply na aaye to 1 week baad polite follow-up karo.",
+      "Seniors ko yeh useful laga ki random 50 applications bhejne se better hota hai 10 thoughtful applications bhejna.",
+      "Agar tum chaho, main next step mein ek simple internship intro message draft bhi de sakti hoon."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Haan. Ek simple apply process kuch is tarah ho sakta hai:",
+      "- Pehle 1-page simple resume ready kijiye, jisme college, skills, projects, aur koi volunteering ya responsibility ho.",
+      "- 2-3 internship buckets choose kijiye, jaise research, data support, content, ya operations.",
+      "- LinkedIn, Internshala, company pages, aur seniors ya mentors ke network se openings dhoondhiye.",
+      "- Har application ke saath ek chhota tailored message bhejiye ki aap kyon interested hain aur kya contribute kar sakti hain.",
+      "- Agar reply na aaye to 1 week baad polite follow-up kijiye.",
+      "Seniors ko yeh useful laga ki random 50 applications bhejne se better hota hai 10 thoughtful applications bhejna.",
+      "Agar aap chahen, main agle step mein ek simple internship intro message draft bhi de sakti hoon."
+    ].join("\n");
+  }
+
+  return [
+    "Yes. A simple apply process can look like this:",
+    "- First, make a one-page resume with your college details, skills, projects, and any volunteering or responsibilities.",
+    "- Choose 2 or 3 internship buckets such as research, data support, content, or operations.",
+    "- Search through LinkedIn, Internshala, company pages, and seniors or mentors in your network.",
+    "- Send a short tailored message with each application about why you are interested and what you can contribute.",
+    "- If there is no response, do one polite follow-up after about a week.",
+    "One thing seniors found useful was sending 10 thoughtful applications instead of 50 random ones.",
+    "If you want, I can next draft a simple internship intro message."
+  ].join("\n");
+}
+
 function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
   const effectiveTopic = inferEffectiveTopic(stage, topic, message);
 
@@ -726,6 +801,19 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
     )
   ) {
     return getInternshipLearningsReply(language);
+  }
+
+  if (
+    effectiveTopic === "internships" &&
+    normalizeStage(stage) === "college" &&
+    isAffirmativeReply(message) &&
+    history.some(
+      (item) =>
+        item?.role === "sakhi" &&
+        /simple apply process|simple internship intro message|apply process/i.test(String(item?.text || ""))
+    )
+  ) {
+    return getInternshipApplyReply(language);
   }
 
   if (
@@ -843,6 +931,20 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
 
   if (effectiveTopic === "internships" && normalizeStage(stage) === "college" && isInformationSeeking(message)) {
     const lowered = String(message || "").toLowerCase();
+    if (/(what kind|which kind|realistically apply|realistic internships|internship types|types of internships)/i.test(lowered)) {
+      const internshipTypesReply = getInternshipTypesReply(language);
+      if (internshipTypesReply) {
+        return internshipTypesReply;
+      }
+    }
+
+    if (/(how do i apply|how to apply|actually apply|apply for internships|internship apply process)/i.test(lowered)) {
+      const internshipApplyReply = getInternshipApplyReply(language);
+      if (internshipApplyReply) {
+        return internshipApplyReply;
+      }
+    }
+
     if (/(start|begin|looking|look for|find|while managing college|along with college|during college|internships during college)/i.test(lowered)) {
       const internshipReply = getInternshipStartReply(language);
       if (internshipReply) {
