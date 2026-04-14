@@ -286,7 +286,9 @@ function getLocalFallbackReply({ message, topic, language }) {
 
 function isRetryableModelError(error) {
   const message = String(error?.message || error || "").toLowerCase();
-  return /429|503|rate|quota|too many|service unavailable|overloaded|unavailable/.test(message);
+  return /429|503|rate|quota|too many|service unavailable|overloaded|unavailable|api key expired|api_key_invalid|invalid api key|invalid_argument/.test(
+    message
+  );
 }
 
 function looksIncompleteResponse(text) {
