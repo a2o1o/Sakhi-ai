@@ -324,20 +324,20 @@ function getLocalKnowledgeReply({ stage, topic, message, language }) {
       const lines = selected.map(
         (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
       );
-      return `Maitri ke current scholarship info set mein yeh options hain:\n${lines.join("\n")}\nAgar tum chaho, main inmein se post-10 aur post-12 options alag karke bhi bata sakti hoon.`;
+      return `Aapki kuch seniors jo boards ke baad alag-alag scholarship programs tak pahunchi hain, unhone in options jaise raaste explore kiye hain:\n${lines.join("\n")}\nAgar tum chaho, main inhe post-10 aur post-12 buckets mein aur clearly separate karke bata sakti hoon.`;
     }
 
     if (language === "hindi") {
       const lines = selected.map(
         (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
       );
-      return `Sakhi ke current scholarship info set mein yeh options hain:\n${lines.join("\n")}\nAgar aap chahen, main inhe post-10 aur post-12 categories mein alag karke bhi bata sakti hoon.`;
+      return `Aapki kuch seniors jo boards ke baad vibhinna scholarship programs tak pahunchi hain, unhone in jaise options explore kiye hain:\n${lines.join("\n")}\nAgar aap chahen, main inhe post-10 aur post-12 categories mein aur clearly alag karke bhi bata sakti hoon.`;
     }
 
     const lines = selected.map(
       (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, selection process ${item.process}.`
     );
-    return `Sakhi currently has these scholarship options in its information set:\n${lines.join("\n")}\nIf you want, I can separate these into post-10 and post-12 options next.`;
+    return `Some of your seniors who have become scholars in different programs after their boards have explored options like:\n${lines.join("\n")}\nIf you want, I can also separate these into post-10 and post-12 options next.`;
   }
 
   return "";
