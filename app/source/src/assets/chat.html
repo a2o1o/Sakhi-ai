@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Sakhi Chat</title>
+  <style>
+    :root {
+      --bg: #f8f2ec;
+      --panel: #fffbf7;
+      --sakhi: #fffdfb;
+      --user: #e7d7ca;
+      --plum: #493260;
+      --soft-plum: #6e597a;
+      --muted: #7a6f77;
+      --border: #e6d7ca;
+      --shadow: 0 10px 24px rgba(73, 50, 96, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: #2c2a33;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    #viewport {
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px;
+      background: var(--bg);
+    }
+
+    #chat {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 4px;
+    }
+
+    .empty {
+      padding: 14px 14px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      line-height: 1.45;
+      box-shadow: var(--shadow);
+    }
+
+    .row {
+      display: flex;
+      width: 100%;
+    }
+
+    .row.sakhi {
+      justify-content: flex-start;
+    }
+
+    .row.user {
+      justify-content: flex-end;
+    }
+
+    .bubble {
+      max-width: 86%;
+      padding: 9px 11px;
+      border-radius: 18px;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .row.sakhi .bubble {
+      background: var(--sakhi);
+      border-top-left-radius: 6px;
+    }
+
+    .row.user .bubble {
+      background: var(--user);
+      border-top-right-radius: 6px;
+      color: var(--plum);
+    }
+
+    .meta {
+      margin-bottom: 2px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--soft-plum);
+      line-height: 1.1;
+    }
+
+    .text {
+      margin: 0;
+      line-height: 1.32;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(231, 215, 202, 0.55);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(110, 89, 122, 0.65);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewport">
+    <div id="chat"></div>
+  </div>
+  <script>
+    const DELIMITER = "<<<MSG>>>";
+    const viewport = document.getElementById("viewport");
+    const chatRoot = document.getElementById("chat");
+    let lastTranscript = null;
+
+    function readTranscript() {
+      try {
+        if (window.AppInventor && typeof window.AppInventor.getWebViewString === "function") {
+          return window.AppInventor.getWebViewString() || "";
+        }
+      } catch (err) {
+      }
+      return "";
+    }
+
+    function parseMessages(transcript) {
+      return String(transcript || "")
+        .split(DELIMITER)
+        .map((part) => part.replace(/^\s+|\s+$/g, ""))
+        .filter(Boolean)
+        .map((part) => {
+          if (part.startsWith("You: ")) {
+            return { sender: "user", label: "You", text: part.slice(5) };
+          }
+          if (part.startsWith("Sakhi: ")) {
+            return { sender: "sakhi", label: "Sakhi", text: part.slice(7) };
+          }
+          return { sender: "sakhi", label: "Sakhi", text: part };
+        });
+    }
+
+    function render(transcript) {
+      const messages = parseMessages(transcript);
+      if (!messages.length) {
+        chatRoot.innerHTML = '<div class="empty">No messages yet. Start the conversation below.</div>';
+        return;
+      }
+
+      chatRoot.innerHTML = messages.map((message) =>
+        `<div class="row ${message.sender}"><div class="bubble"><div class="meta">${message.label}</div><div class="text">${escapeHtml(message.text)}</div></div></div>`
+      ).join("");
+    }
+
+    function escapeHtml(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function tick() {
+      const transcript = readTranscript();
+      if (transcript !== lastTranscript) {
+        lastTranscript = transcript;
+        render(transcript);
+      }
+    }
+
+    render("");
+    setInterval(tick, 250);
+  </script>
+</body>
+</html>
