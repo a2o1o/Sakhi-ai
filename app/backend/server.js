@@ -297,7 +297,9 @@ function formatScholarshipRow(row) {
   const subStage = row.sub_stage === "post_class_10" ? "post-10" : row.sub_stage === "post_12" ? "post-12" : "";
   const incomeCriteria = row.income_criteria || "";
   const incomeCertificateTiming = row.income_certificate_timing || "";
-  return { name, marks, process, subStage, incomeCriteria, incomeCertificateTiming };
+  const extraRequirement = row.extra_requirement || "";
+  const communitySupportNote = row.community_support_note || "";
+  return { name, marks, process, subStage, incomeCriteria, incomeCertificateTiming, extraRequirement, communitySupportNote };
 }
 
 function isAffirmativeReply(message) {
@@ -341,40 +343,49 @@ function getScholarshipIncomeReply(rows, language) {
   }
 
   const lines = eligible.map((item) => {
-    const parts = [`- ${item.name}`];
-    if (item.incomeCriteria) {
-      parts.push(item.incomeCriteria);
-    }
-    if (item.incomeCertificateTiming) {
-      parts.push(item.incomeCertificateTiming);
-    }
-    return `${parts.join(": ").replace(": ", ": ")}`;
+    const detailParts = [];
+    if (item.incomeCriteria) detailParts.push(item.incomeCriteria);
+    if (item.incomeCertificateTiming) detailParts.push(item.incomeCertificateTiming);
+    if (item.extraRequirement) detailParts.push(item.extraRequirement);
+    return `- ${item.name}: ${detailParts.join(". ")}.`;
   });
 
+  const eyDisha = eligible.find((item) => /ey disha/i.test(item.name));
+  const communityLine = eyDisha?.communitySupportNote || "";
+
   if (language === "hinglish") {
-    return [
-      "Income certificate ke liye in options mein yeh difference dikhta hai:",
+    const parts = [
+      "Aapki seniors ke experience se income certificate ke around yeh cheezein sabse useful lagti hain:",
       ...lines,
       "In teenon mein Vidyadhan mein income certificate sabse jaldi, yani application stage par hi chahiye hota hai.",
-      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai. Agar tum chaho, main next step mein simple document checklist bhi de sakti hoon."
-    ].join("\n");
+      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai."
+    ];
+    if (communityLine) parts.push(communityLine);
+    parts.push("Agar tum chaho, main next step mein simple document checklist bhi de sakti hoon.");
+    return parts.join("\n");
   }
 
   if (language === "hindi") {
-    return [
-      "Income certificate ke maamle mein in options mein yeh antar dikhta hai:",
+    const parts = [
+      "Aapki seniors ke anubhav se income certificate ke around yeh baatein sabse upyogi lagti hain:",
       ...lines,
       "In teenon mein Vidyadhan mein income certificate sabse jaldi, yani application stage par hi chahiye hota hai.",
-      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai. Agar aap chahen, main agle step mein simple document checklist bhi de sakti hoon."
-    ].join("\n");
+      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai."
+    ];
+    if (communityLine) parts.push(communityLine);
+    parts.push("Agar aap chahen, main agle step mein simple document checklist bhi de sakti hoon.");
+    return parts.join("\n");
   }
 
-  return [
-    "For income certificate requirements, these are the key differences across the options currently in Sakhi's scholarship set:",
+  const parts = [
+    "From what seniors in the community have found useful, these are the key income-certificate differences across the options currently in Sakhi's scholarship set:",
     ...lines,
     "Of these, Vidyadhan places the earliest importance on the income certificate because it is needed during the application process itself.",
-    "You can usually get an income certificate through your local tehsil or revenue office, or through your state government's online service portal. If you want, I can next give you a simple document checklist for getting it ready."
-  ].join("\n");
+    "You can usually get an income certificate through your local tehsil or revenue office, or through your state government's online service portal."
+  ];
+  if (communityLine) parts.push(communityLine);
+  parts.push("If you want, I can next give you a simple document checklist for getting it ready.");
+  return parts.join("\n");
 }
 
 function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
