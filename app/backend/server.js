@@ -295,7 +295,9 @@ function formatScholarshipRow(row) {
   const marks = row.minimum_marks ? `${row.minimum_marks} marks` : "eligibility to be checked";
   const process = row.selection_process || "selection details to be checked";
   const subStage = row.sub_stage === "post_class_10" ? "post-10" : row.sub_stage === "post_12" ? "post-12" : "";
-  return { name, marks, process, subStage };
+  const incomeCriteria = row.income_criteria || "";
+  const incomeCertificateTiming = row.income_certificate_timing || "";
+  return { name, marks, process, subStage, incomeCriteria, incomeCertificateTiming };
 }
 
 function isAffirmativeReply(message) {
@@ -329,6 +331,49 @@ function getScholarshipLearningReply(language) {
     "- Getting one teacher or mentor to review forms and eligibility details helped them avoid small mistakes.",
     "- In interviews, clarity about their studies, interests, and future goals mattered as much as marks.",
     "- Even if one application did not work out, applying to more than one option gave them a better chance."
+  ].join("\n");
+}
+
+function getScholarshipIncomeReply(rows, language) {
+  const eligible = rows.filter((row) => row.incomeCriteria || row.incomeCertificateTiming);
+  if (!eligible.length) {
+    return "";
+  }
+
+  const lines = eligible.map((item) => {
+    const parts = [`- ${item.name}`];
+    if (item.incomeCriteria) {
+      parts.push(item.incomeCriteria);
+    }
+    if (item.incomeCertificateTiming) {
+      parts.push(item.incomeCertificateTiming);
+    }
+    return `${parts.join(": ").replace(": ", ": ")}`;
+  });
+
+  if (language === "hinglish") {
+    return [
+      "Income certificate ke liye in options mein yeh difference dikhta hai:",
+      ...lines,
+      "In teenon mein Vidyadhan mein income certificate sabse jaldi, yani application stage par hi chahiye hota hai.",
+      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai. Agar tum chaho, main next step mein simple document checklist bhi de sakti hoon."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    return [
+      "Income certificate ke maamle mein in options mein yeh antar dikhta hai:",
+      ...lines,
+      "In teenon mein Vidyadhan mein income certificate sabse jaldi, yani application stage par hi chahiye hota hai.",
+      "Income certificate aam taur par local tehsil, revenue office, ya state government ke online service portal se milta hai. Agar aap chahen, main agle step mein simple document checklist bhi de sakti hoon."
+    ].join("\n");
+  }
+
+  return [
+    "For income certificate requirements, these are the key differences across the options currently in Sakhi's scholarship set:",
+    ...lines,
+    "Of these, Vidyadhan places the earliest importance on the income certificate because it is needed during the application process itself.",
+    "You can usually get an income certificate through your local tehsil or revenue office, or through your state government's online service portal. If you want, I can next give you a simple document checklist for getting it ready."
   ].join("\n");
 }
 
@@ -367,6 +412,13 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
     const selected = filtered.slice(0, 4).map(formatScholarshipRow);
     if (!selected.length) {
       return "";
+    }
+
+    if (/(income certificate|income proof|income criteria|income limit|family income|certificate)/i.test(lowered)) {
+      const incomeReply = getScholarshipIncomeReply(selected, language);
+      if (incomeReply) {
+        return incomeReply;
+      }
     }
 
     if (language === "hinglish") {
