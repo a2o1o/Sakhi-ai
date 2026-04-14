@@ -93,6 +93,11 @@ const topicFileMap = {
       "Maitri's Intern Sharing Form - Giving back to your juniors (Responses) - Form Responses 1.csv"
     )
 };
+const structuredTopicFileMap = {
+  scholarships:
+    process.env.SCHOOL_SCHOLARSHIPS_OPTIONS_CSV ||
+    path.join(repoRoot, "data", "school-scholarships-options.csv")
+};
 
 function normalizeStage(stage) {
   return String(stage || "")
@@ -116,6 +121,29 @@ function tokenize(text) {
     .replace(/[^a-z0-9\u0900-\u097F\s]/g, " ")
     .split(/\s+/)
     .filter((token) => token.length > 2);
+}
+
+function loadStructuredRows(filePath) {
+  const resolved = resolveDataFile(filePath);
+  if (!resolved || !fs.existsSync(resolved)) {
+    return [];
+  }
+
+  try {
+    const csvText = fs.readFileSync(resolved, "utf8");
+    return parse(csvText, {
+      columns: true,
+      skip_empty_lines: true,
+      relax_column_count: true,
+      bom: true
+    }).map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [normalizeHeader(key).replace(/\s+/g, "_"), String(value || "").trim()])
+      )
+    );
+  } catch {
+    return [];
+  }
 }
 
 function classifyMessage(message) {
@@ -178,6 +206,33 @@ function detectLanguage(message) {
   return "english";
 }
 
+function inferEffectiveTopic(stage, topic, message) {
+  const normalizedTopic = normalizeStage(topic);
+  if (normalizedTopic && normalizedTopic !== "open concern" && normalizedTopic !== "general") {
+    return normalizedTopic;
+  }
+
+  const normalizedStage = normalizeStage(stage);
+  const lowered = String(message || "").toLowerCase();
+
+  if (normalizedStage === "school" && /(scholar|scholarship|fees?|financial support|finance|fund|vidyadhan|kotak|cadence|udayan|disha|karm)/i.test(lowered)) {
+    return "scholarships";
+  }
+
+  if (normalizedStage === "college" && /(intern|internship|resume|cv|job|career opportunity|part time job|part-time job)/i.test(lowered)) {
+    return "internships";
+  }
+
+  return normalizedTopic || "open concern";
+}
+
+function isInformationSeeking(message) {
+  const lowered = String(message || "").toLowerCase();
+  return /(what|which|who|where|how|can you|do you have|tell me|information|info|details|program|programs|list|share)/i.test(
+    lowered
+  );
+}
+
 function getLanguageInstruction(language) {
   if (language === "hindi") return "Reply fully in Hindi.";
   if (language === "hinglish") {
@@ -233,6 +288,59 @@ function getTemporaryFailureReply(language) {
   }
 
   return "Sakhi is not working right now. Please come back a little later and try again.";
+}
+
+function formatScholarshipRow(row) {
+  const name = row.name || "Scholarship option";
+  const marks = row.minimum_marks ? `${row.minimum_marks} marks` : "eligibility to be checked";
+  const process = row.selection_process || "selection details to be checked";
+  const subStage = row.sub_stage === "post_class_10" ? "post-10" : row.sub_stage === "post_12" ? "post-12" : "";
+  return { name, marks, process, subStage };
+}
+
+function getLocalKnowledgeReply({ stage, topic, message, language }) {
+  const effectiveTopic = inferEffectiveTopic(stage, topic, message);
+
+  if (effectiveTopic === "scholarships" && normalizeStage(stage) === "school" && isInformationSeeking(message)) {
+    const rows = structuredTopicRows.scholarships || [];
+    if (!rows.length) {
+      return "";
+    }
+
+    const lowered = String(message || "").toLowerCase();
+    const post12Only = /(12th|post 12|after 12|graduation|college)/i.test(lowered);
+    const post10Only = /(10th|post 10|after 10|boards)/i.test(lowered) && !post12Only;
+    const filtered = rows.filter((row) => {
+      if (post12Only) return row.sub_stage === "post_12";
+      if (post10Only) return row.sub_stage === "post_class_10";
+      return true;
+    });
+    const selected = filtered.slice(0, 4).map(formatScholarshipRow);
+    if (!selected.length) {
+      return "";
+    }
+
+    if (language === "hinglish") {
+      const lines = selected.map(
+        (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
+      );
+      return `Maitri ke current scholarship info set mein yeh options hain:\n${lines.join("\n")}\nAgar tum chaho, main inmein se post-10 aur post-12 options alag karke bhi bata sakti hoon.`;
+    }
+
+    if (language === "hindi") {
+      const lines = selected.map(
+        (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, process ${item.process}.`
+      );
+      return `Sakhi ke current scholarship info set mein yeh options hain:\n${lines.join("\n")}\nAgar aap chahen, main inhe post-10 aur post-12 categories mein alag karke bhi bata sakti hoon.`;
+    }
+
+    const lines = selected.map(
+      (item) => `- ${item.name}${item.subStage ? ` (${item.subStage})` : ""}: minimum ${item.marks}, selection process ${item.process}.`
+    );
+    return `Sakhi currently has these scholarship options in its information set:\n${lines.join("\n")}\nIf you want, I can separate these into post-10 and post-12 options next.`;
+  }
+
+  return "";
 }
 
 function getFallbackTopicLabel(topic, language) {
@@ -391,6 +499,9 @@ const stageResponses = {
 const topicResponses = {
   scholarships: loadStageResponses(topicFileMap.scholarships, "Scholarships"),
   internships: loadStageResponses(topicFileMap.internships, "Internships")
+};
+const structuredTopicRows = {
+  scholarships: loadStructuredRows(structuredTopicFileMap.scholarships)
 };
 
 const memoryStoreFile =
@@ -1521,6 +1632,24 @@ app.get(
         return;
       }
 
+      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+      if (localKnowledgeReply) {
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", localKnowledgeReply);
+        }
+        recordSuccess(topic, localKnowledgeReply, {
+          mode: "practical",
+          language,
+          stage,
+          sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
+          latencyMs: Date.now() - startedAt
+        });
+        res.type("text/plain").send(localKnowledgeReply);
+        return;
+      }
+
       const history = useMemory ? getConversationHistory(sessionKey) : [];
       const peerSnippets = getEffectivePeerSnippets(topic, getPeerContext(stage, topic, message));
       const text = await generateSakhiReply({
@@ -1633,6 +1762,24 @@ app.post(
           latencyMs: Date.now() - startedAt
         });
         res.type("text/plain").send(reply);
+        return;
+      }
+
+      const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+      if (localKnowledgeReply) {
+        if (useMemory) {
+          storeConversationTurn(sessionKey, "user", message);
+          storeConversationTurn(sessionKey, "sakhi", localKnowledgeReply);
+        }
+        recordSuccess(topic, localKnowledgeReply, {
+          mode: "practical",
+          language,
+          stage,
+          sessionKey,
+          userKey: typeof userId === "string" && userId.trim() ? userId.trim().slice(0, 120) : "",
+          latencyMs: Date.now() - startedAt
+        });
+        res.type("text/plain").send(localKnowledgeReply);
         return;
       }
 
@@ -1750,6 +1897,30 @@ app.post("/api/chat", requireConfiguredApiKey, requireAppToken, async (req, res)
         model,
         mode,
         peerContextCount: 0
+      });
+      return;
+    }
+
+    const localKnowledgeReply = getLocalKnowledgeReply({ stage, topic, message, language });
+    if (localKnowledgeReply) {
+      if (useMemory) {
+        storeConversationTurn(sessionKey, "user", message);
+        storeConversationTurn(sessionKey, "sakhi", localKnowledgeReply);
+      }
+      recordSuccess(topic, localKnowledgeReply, {
+        mode: "practical",
+        language,
+        stage,
+        sessionKey,
+        userKey,
+        latencyMs: Date.now() - startedAt
+      });
+      res.json({
+        reply: localKnowledgeReply,
+        model,
+        mode: "practical",
+        peerContextCount: 0,
+        topic: inferEffectiveTopic(stage, topic, message)
       });
       return;
     }
