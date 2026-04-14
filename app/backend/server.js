@@ -298,8 +298,21 @@ function formatScholarshipRow(row) {
   const incomeCriteria = row.income_criteria || "";
   const incomeCertificateTiming = row.income_certificate_timing || "";
   const extraRequirement = row.extra_requirement || "";
+  const whoItIsFor = row.who_it_is_for || "";
   const communitySupportNote = row.community_support_note || "";
-  return { name, marks, process, subStage, incomeCriteria, incomeCertificateTiming, extraRequirement, communitySupportNote };
+  const practicalNote = row.practical_note || "";
+  return {
+    name,
+    marks,
+    process,
+    subStage,
+    incomeCriteria,
+    incomeCertificateTiming,
+    extraRequirement,
+    whoItIsFor,
+    communitySupportNote,
+    practicalNote
+  };
 }
 
 function isAffirmativeReply(message) {
@@ -469,6 +482,60 @@ function getScholarshipIncomeReply(rows, language) {
   return parts.join("\n");
 }
 
+function getPost12ScholarshipOptionsReply(rows, language) {
+  const selected = rows.filter((row) => row.subStage === "post-12").slice(0, 3);
+  if (!selected.length) {
+    return "";
+  }
+
+  if (language === "hinglish") {
+    const lines = selected.map((item) => {
+      const details = [];
+      if (item.whoItIsFor) details.push(item.whoItIsFor);
+      if (item.marks) details.push(`usually ${item.marks}`);
+      if (item.practicalNote) details.push(item.practicalNote);
+      return `- ${item.name}: ${details.join("; ")}.`;
+    });
+    return [
+      "Post-12 financial support ke liye aapki seniors ne in jaise options explore kiye hain:",
+      ...lines,
+      "In options ko dekhte hue ek helpful strategy yeh hoti hai ki documents, personal story, aur course direction ko saath mein prepare kiya jaye.",
+      "Agar tum chaho, main next step mein in teenon ko compare karke bata sakti hoon ki kis mein marks, docs, aur personal story ka weight zyada hai."
+    ].join("\n");
+  }
+
+  if (language === "hindi") {
+    const lines = selected.map((item) => {
+      const details = [];
+      if (item.whoItIsFor) details.push(item.whoItIsFor);
+      if (item.marks) details.push(`usually ${item.marks}`);
+      if (item.practicalNote) details.push(item.practicalNote);
+      return `- ${item.name}: ${details.join("; ")}.`;
+    });
+    return [
+      "Post-12 financial support ke liye aapki seniors ne in jaise options explore kiye hain:",
+      ...lines,
+      "In options ko dekhte hue ek upyogi strategy yeh hoti hai ki documents, personal story aur course direction ko saath mein prepare kiya jaye.",
+      "Agar aap chahen, main next step mein in teenon ko compare karke bata sakti hoon ki kis mein marks, docs aur personal story ka weight zyada hai."
+    ].join("\n");
+  }
+
+  const lines = selected.map((item) => {
+    const details = [];
+    if (item.whoItIsFor) details.push(item.whoItIsFor);
+    if (item.marks) details.push(`usually ${item.marks}`);
+    if (item.practicalNote) details.push(item.practicalNote);
+    return `- ${item.name}: ${details.join("; ")}.`;
+  });
+
+  return [
+    "Some of your seniors explored post-12 support options like:",
+    ...lines,
+    "Across these, one useful pattern is to prepare your documents, personal story, and course direction together rather than treating each scholarship separately.",
+    "If you want, I can next compare these three in terms of where marks, documentation, and personal story matter most."
+  ].join("\n");
+}
+
 function getLocalKnowledgeReply({ stage, topic, message, language, history = [] }) {
   const effectiveTopic = inferEffectiveTopic(stage, topic, message);
 
@@ -538,6 +605,13 @@ function getLocalKnowledgeReply({ stage, topic, message, language, history = [] 
       const incomeReply = getScholarshipIncomeReply(selected, language);
       if (incomeReply) {
         return incomeReply;
+      }
+    }
+
+    if (post12Only) {
+      const post12Reply = getPost12ScholarshipOptionsReply(selected, language);
+      if (post12Reply) {
+        return post12Reply;
       }
     }
 
